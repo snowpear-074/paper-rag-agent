@@ -23,14 +23,18 @@
        真实参数对照实验与 Markdown 报告。
    * - :mod:`~src.evaluation.report`
      - **报告汇总**：一次产出系统评测报告 / 性能数据 JSON / Excel / Bad Case 报告。
+   * - :mod:`~src.evaluation.chunking_experiment`
+     - **分块策略对比实验**：四种切分策略各建一次索引，在同一批问题上跑同一套
+       严格口径指标，产出《分块策略对比实验报告》（课程要求 5.1.2 的产出物）。
 
 运行方式
 --------
 .. code-block:: bash
 
-    python -m src.evaluation.eval_set        # 生成 reports/评测集.json
-    python -m src.evaluation.badcase         # Bad Case 分析（含真实对照实验）
-    python -m src.evaluation.report --quick  # 快速评测，产出全部报告
+    python -m src.evaluation.eval_set               # 生成 reports/评测集.json
+    python -m src.evaluation.badcase                # Bad Case 分析（含真实对照实验）
+    python -m src.evaluation.report --quick         # 快速评测，产出全部报告
+    python -m src.evaluation.chunking_experiment    # 分块策略对比实验
     python -m unittest tests.test_evaluation -v
 
 设计约束
@@ -115,6 +119,30 @@ __all__ = [
     "CATEGORIES", "CATEGORY_LABELS",
     # 报告
     "generate_reports", "render_markdown", "bar_chart",
+    # 分块策略对比实验
+    "run_chunking_experiment", "save_chunking_report", "STRATEGY_LABELS", "STRATEGY_NOTES",
 ]
 
 __version__ = "1.0.0"
+
+#: 延迟导出：``chunking_experiment`` 刻意**不**在上方 eager import。
+#: 因为该模块同时是命令行入口（``python -m src.evaluation.chunking_experiment``）：
+#: 若包初始化时已导入它，runpy 再执行一次会抛出
+#: ``found in sys.modules ... prior to execution`` 警告。
+_LAZY_EXPORTS = {
+    "run_chunking_experiment": ("chunking_experiment", "run_experiment"),
+    "save_chunking_report": ("chunking_experiment", "save_markdown"),
+    "STRATEGY_LABELS": ("chunking_experiment", "STRATEGY_LABELS"),
+    "STRATEGY_NOTES": ("chunking_experiment", "STRATEGY_NOTES"),
+}
+
+
+def __getattr__(name: str):  # pragma: no cover - 仅在按需访问时触发
+    """PEP 562 模块级延迟导入，见 :data:`_LAZY_EXPORTS`。"""
+    target = _LAZY_EXPORTS.get(name)
+    if target is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    import importlib
+
+    module = importlib.import_module(f".{target[0]}", __name__)
+    return getattr(module, target[1])

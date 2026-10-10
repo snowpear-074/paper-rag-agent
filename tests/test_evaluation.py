@@ -30,6 +30,7 @@ from types import SimpleNamespace
 
 from src.evaluation import badcase as badcase_module
 from src.evaluation import benchmark as benchmark_module
+from src.evaluation import chunking_experiment as chunking_module
 from src.evaluation import eval_set as eval_set_module
 from src.evaluation import metrics as M
 from src.evaluation import report as report_module
@@ -1465,6 +1466,128 @@ class ExportExcelTest(unittest.TestCase):
             for sheet in ("检索三档对比", "Agent 指标", "端到端", "逐条明细"):
                 with self.subTest(sheet=sheet):
                     self.assertIn(sheet, book.sheetnames)
+
+
+class ChunkingExperimentTest(unittest.TestCase):
+    """分块策略对比实验（模块一 5.1.2 的产出物生成器）。
+
+    真实跑一遍四种策略的完整实验要 1 秒左右，所以这里既测纯渲染，
+    也真跑一次**两策略**的实验（既验证隔离，也防止渲染与实验脱节）。
+    """
+
+    def test_strategy_config_isolates_persist_dirs(self):
+        """两种策略必须落到不同目录：共用目录会让后建的索引覆盖前一个。"""
+        from src.evaluation import chunking_experiment as CE
+
+        base = SimpleNamespace(merged_with=lambda over: over)
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp)
+            a = CE._strategy_config(base, "fixed", work)
+            b = CE._strategy_config(base, "semantic", work)
+        self.assertNotEqual(a["vector_store"]["persist_dir"], b["vector_store"]["persist_dir"])
+        self.assertNotEqual(a["paths"]["index_dir"], b["paths"]["index_dir"])
+        self.assertEqual(a["chunking"]["strategy"], "fixed")
+        self.assertEqual(b["chunking"]["strategy"], "semantic")
+
+    def test_render_markdown_has_table_and_bars(self):
+        result = {
+            "generated_at": "2026-01-01 00:00:00",
+            "quick": False,
+            "mode": "hybrid",
+            "top_k": 5,
+            "num_samples": 2,
+            "strategies": ["fixed", "recursive"],
+            "corpus": {"num_documents": 1, "documents": []},
+            "wall_ms": 1000.0,
+            "workdir": "tmp",
+            "rows": [
+                {"strategy": "fixed", "label": "固定窗口切分", "num_chunks": 25,
+                 "avg_chunk_chars": 463.3, "min_chunk_chars": 152, "max_chunk_chars": 512,
+                 "index_ms": 50.0, "avg_latency_ms": 1.1, "resolved_gold": 2,
+                 "strict_hit@5": 0.5, "strict_mrr": 0.4, "strict_recall@5": 0.5,
+                 "strict_precision@5": 0.2, "strict_ndcg@5": 0.45, "strict_num_samples": 2},
+                {"strategy": "recursive", "label": "递归字符切分", "num_chunks": 27,
+                 "avg_chunk_chars": 433.0, "min_chunk_chars": 175, "max_chunk_chars": 509,
+                 "index_ms": 48.0, "avg_latency_ms": 0.9, "resolved_gold": 2,
+                 "strict_hit@5": 1.0, "strict_mrr": 0.9, "strict_recall@5": 0.8,
+                 "strict_precision@5": 0.2, "strict_ndcg@5": 0.85, "strict_num_samples": 2},
+            ],
+        }
+        text = chunking_module.render_markdown(result)
+        self.assertIn("# 分块策略对比实验报告", text)
+        self.assertIn("| 分块策略 | 分块数 |", text)
+        self.assertIn("固定窗口切分（`fixed`） | 25", text)
+        self.assertIn("```text", text)
+        # 结论里应指出 NDCG 最优策略
+        self.assertIn("递归字符切分", text.split("## 四、结论")[1].split("## 五")[0])
+        self.assertIn("本次实验总耗时 **1.0 秒**", text)
+
+    def test_render_markdown_marks_failed_strategy(self):
+        """某个策略跑挂时必须显式标注「未运行」，不能悄悄少一行。"""
+        result = {
+            "generated_at": "2026-01-01 00:00:00", "quick": True, "mode": "hybrid",
+            "top_k": 5, "num_samples": 1, "strategies": ["fixed", "semantic"],
+            "corpus": {"num_documents": 1, "documents": []}, "wall_ms": 10.0,
+            "workdir": "tmp",
+            "rows": [
+                {"strategy": "fixed", "label": "固定窗口切分", "num_chunks": 1,
+                 "avg_chunk_chars": 1.0, "min_chunk_chars": 1, "max_chunk_chars": 1,
+                 "index_ms": 1.0, "avg_latency_ms": 1.0, "resolved_gold": 1,
+                 "strict_hit@5": 1.0, "strict_mrr": 1.0, "strict_recall@5": 1.0,
+                 "strict_precision@5": 1.0, "strict_ndcg@5": 1.0, "strict_num_samples": 1},
+                {"strategy": "semantic", "label": "语义切分", "error": "RuntimeError: boom"},
+            ],
+        }
+        text = chunking_module.render_markdown(result)
+        self.assertIn("未运行", text)
+        self.assertIn("RuntimeError: boom", text)
+
+    def test_render_markdown_without_successful_rows(self):
+        """全部策略失败时也要出报告，而不是抛 KeyError。"""
+        result = {
+            "generated_at": "2026-01-01 00:00:00", "quick": True, "mode": "hybrid",
+            "top_k": 5, "num_samples": 0, "strategies": ["fixed"],
+            "corpus": {"num_documents": 0, "documents": []}, "wall_ms": 1.0,
+            "workdir": "tmp",
+            "rows": [{"strategy": "fixed", "label": "固定窗口切分", "error": "ImportError: x"}],
+        }
+        text = chunking_module.render_markdown(result)
+        self.assertIn("所有策略均未成功运行", text)
+        self.assertIn("ImportError: x", text)
+
+    def test_quick_subset_is_stratified_and_stable(self):
+        items = eval_set_module.build_eval_set()
+        subset = chunking_module._quick_subset(items)
+        self.assertLessEqual(len(subset), chunking_module.QUICK_LIMIT)
+        # 分层抽样：四类问题都应出现（评测集四类各 12+ 条）
+        types = {str(s.get("type")) for s in subset}
+        self.assertGreaterEqual(len(types), 3)
+        # 同一输入两次抽样结果一致（可复现，报告能对齐）
+        self.assertEqual([s["id"] for s in subset], [s["id"] for s in chunking_module._quick_subset(items)])
+
+    def test_run_experiment_two_strategies(self):
+        """真跑一次两策略实验：分块数必须互不相同（证明各建各的索引）。"""
+        from src.evaluation import chunking_experiment as CE
+
+        result = CE.run_experiment(quick=True, strategies=("fixed", "semantic"))
+        rows = {r["strategy"]: r for r in result["rows"]}
+        for name in ("fixed", "semantic"):
+            with self.subTest(strategy=name):
+                self.assertNotIn("error", rows[name], rows[name].get("error"))
+                self.assertGreater(rows[name]["num_chunks"], 0)
+                self.assertGreater(rows[name]["strict_num_samples"], 0)
+                self.assertLessEqual(rows[name]["strict_num_samples"], result["num_samples"])
+                self.assertGreaterEqual(rows[name]["avg_latency_ms"], 0.0)
+        self.assertNotEqual(rows["fixed"]["num_chunks"], rows["semantic"]["num_chunks"],
+                            "语义切分粒度更细，分块数应与固定窗口不同")
+
+    def test_save_markdown_writes_file(self):
+        from src.evaluation import chunking_experiment as CE
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = CE.save_markdown("# 标题\n", str(Path(tmp) / "r.md"))
+            self.assertTrue(Path(path).exists())
+            self.assertIn("标题", Path(path).read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

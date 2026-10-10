@@ -750,9 +750,10 @@ python -m unittest tests.test_evaluation -v      # 模块五：评测
 运行评测并生成报告：
 
 ```bash
-python -m src.evaluation.eval_set        # 生成评测集
-python -m src.evaluation.report --quick  # 快速评测 + 报告
-python -m src.evaluation.report          # 完整评测
+python -m src.evaluation.eval_set                 # 生成评测集
+python -m src.evaluation.report --quick           # 快速评测 + 报告
+python -m src.evaluation.report                   # 完整评测
+python -m src.evaluation.chunking_experiment      # 四种分块策略对比实验
 ```
 
 ---
