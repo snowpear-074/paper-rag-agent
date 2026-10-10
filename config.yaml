@@ -1,0 +1,258 @@
+# ==============================================================================
+# 智能科研助理 —— 系统全局配置
+# 基于 RAG + Agent 的论文知识库问答系统
+#
+# 配置优先级（从低到高）：
+#   config.yaml  <  密封凭据库(data/secrets/)  <  环境变量(APP_*)  <  代码显式传参
+#
+# 环境变量命名规则：APP_<段名>__<字段名>（双下划线表示层级）
+#   例如：APP_LLM__PROVIDER=openai  APP_RETRIEVAL__TOP_K=10
+#
+# ⚠️ API 密钥**不要**写在本文件里！
+#    请使用密封凭据库（明文不落盘、可安全提交代码）：
+#        python -m src.utils.secrets set llm_api_key
+#        python -m src.utils.secrets status      # 只看掩码
+#    见 README「API 密钥安全配置」一节。
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# LLM 大模型服务配置
+# provider 可选值：
+#   openai    任何 OpenAI 兼容接口（DeepSeek / OpenAI / vLLM / LM Studio / 硅基流动）
+#   ollama    本地 Ollama（完全离线，默认 http://127.0.0.1:11434）
+#   dashscope 阿里云通义千问 DashScope
+#   mock      离线模拟后端（无需任何外部服务，用于开发自测与单元测试）
+# ------------------------------------------------------------------------------
+llm:
+  provider: openai
+  model: deepseek-chat
+  base_url: "https://api.deepseek.com"
+  # 留空即可 —— 从密封凭据库或环境变量 APP_LLM__API_KEY 读取
+  api_key: ""
+  temperature: 0.3
+  top_p: 0.9
+  max_tokens: 2048
+  timeout: 120
+  max_retries: 3
+  stream: true
+
+# ------------------------------------------------------------------------------
+# Embedding 向量化模型配置
+# provider 可选值：
+#   hash      离线哈希 n-gram 向量（零依赖、确定性，开箱即用）
+#   openai    OpenAI 兼容 /v1/embeddings 接口（SiliconFlow / 通义 / OpenAI 等）
+#   ollama    通过 Ollama 调用 bge-large-zh / bge-m3
+#   local     本地 sentence-transformers 模型（需自行 pip install）
+#
+# ⚠️ DeepSeek 不提供 embedding 接口（/v1/embeddings 返回 404）。
+#    因此默认使用 hash（词面相似度）；若需要真正的语义向量，请改用
+#    ollama（本地、免费）或 siliconflow（填其自家的 API Key）。
+# ------------------------------------------------------------------------------
+embedding:
+  provider: hash
+  model: bge-large-zh
+  base_url: "http://127.0.0.1:11434"
+  # 留空即可 —— 从密封凭据库 embedding_api_key 或 APP_EMBEDDING__API_KEY 读取
+  api_key: ""
+  dimension: 512
+  batch_size: 32
+  normalize: true
+  cache_dir: "./data/models"
+
+# ------------------------------------------------------------------------------
+# 向量数据库配置
+# backend 可选值：
+#   numpy    纯 NumPy 内存索引 + JSON 持久化（零依赖，默认）
+#   chroma   ChromaDB 轻量级向量库（需 pip install chromadb）
+#   faiss    FAISS 高性能向量检索（需 pip install faiss-cpu）
+# ------------------------------------------------------------------------------
+vector_store:
+  backend: numpy
+  persist_dir: "./data/vector_store"
+  collection: "papers"
+  distance: "cosine"          # cosine | l2 | ip
+
+# ------------------------------------------------------------------------------
+# 文档处理与分块配置
+# ------------------------------------------------------------------------------
+chunking:
+  strategy: recursive         # fixed | recursive | semantic
+  chunk_size: 512
+  chunk_overlap: 64
+  min_chunk_size: 80
+  # 语义分块专用参数
+  semantic:
+    similarity_threshold: 0.62
+    max_sentences: 12
+  # 学术论文专项优化
+  paper_optimize:
+    remove_references: true        # 剔除参考文献列表（可选）
+    merge_cross_page: true         # 合并跨页断裂段落
+    keep_formula_lines: true       # 保留公式行不拆分
+    dehyphenate: true              # 修复跨行断词（inter-\nnational）
+
+# ------------------------------------------------------------------------------
+# 检索层配置
+# ------------------------------------------------------------------------------
+retrieval:
+  top_k: 5                    # 最终返回条数
+  candidate_k: 20             # 每路召回候选数（送入融合/重排）
+  enable_bm25: true           # 是否启用 BM25 关键词检索
+  enable_rerank: true         # 是否启用重排序
+  rrf_k: 60                   # RRF 融合公式中的平滑常数 k
+  vector_weight: 1.0          # RRF 中向量路权重
+  bm25_weight: 1.0            # RRF 中 BM25 路权重
+  bm25_k1: 1.5                # BM25 词频饱和参数
+  bm25_b: 0.75                # BM25 文档长度归一化参数
+  min_score: 0.0              # 低于该分数的结果被丢弃
+  # 低相关性判定阈值（触发模块二降级策略）
+  low_relevance_threshold: 0.25
+  # knowledge_search 工具的置信度过滤门槛：低于此值的片段不会交给大模型
+  # 标定依据（实测）：域外问题置信度恒为 0.010；域内问题最低约 0.124（中文提问）
+  # 因此 0.06 能干净分隔。调高会更严格（宁可拒答），调低会放宽（可能引入噪声）。
+  min_confidence: 0.06
+
+# ------------------------------------------------------------------------------
+# 文档加载器配置
+# ------------------------------------------------------------------------------
+data_loader:
+  # auto 会按 pymupdf → pdfplumber → pypdf → builtin 顺序选择可用后端
+  pdf_backend: auto
+  prefer_python_docx: false
+  # 留空表示按文件后缀自动选择（markdown/bibtex/csv/json/plain）
+  text_strategy: null
+
+# ------------------------------------------------------------------------------
+# 重排序模型配置
+# provider 可选值：
+#   none      关闭重排序（直接用融合分数排序）
+#   heuristic 零依赖启发式重排（词项覆盖 + 邻近度 + 结构先验）
+#   ollama    通过 Ollama 调用 bge-reranker
+#   local     本地 sentence-transformers CrossEncoder
+# ------------------------------------------------------------------------------
+reranker:
+  provider: heuristic
+  model: bge-reranker-base
+  base_url: "http://127.0.0.1:11434"
+  top_n: 5
+
+# ------------------------------------------------------------------------------
+# RAG 生成层配置
+# ------------------------------------------------------------------------------
+generation:
+  # 拼接进 Prompt 的最大上下文字符数（超出按相关性截断）
+  max_context_chars: 6000
+  # 单个片段最大字符数
+  max_chunk_chars: 1500
+  # 无检索结果时是否回退纯模型生成
+  fallback_to_llm: true
+  # 引用溯源格式："【文档名 p.页码】"
+  citation_style: "【{source} p.{page}】"
+  # 语义缓存配置
+  cache:
+    enabled: true
+    backend: "sqlite"         # sqlite | memory
+    path: "./data/cache/semantic_cache.db"
+    similarity_threshold: 0.93
+    ttl_seconds: 604800       # 7 天
+    max_entries: 5000
+
+# ------------------------------------------------------------------------------
+# Agent 决策层配置
+# ------------------------------------------------------------------------------
+agent:
+  max_iterations: 8               # 最大推理轮次（防死循环）
+  max_parallel_tools: 3           # 单轮最大并行工具数
+  tool_timeout: 45                # 单工具调用超时（秒）
+  max_retries_per_tool: 2         # 工具失败重试次数
+  # 是否启用规则路由（先做意图识别，减少无谓推理轮次）
+  enable_router: true
+  # 是否启用并行工具调用
+  enable_parallel: true
+  # 死循环检测：连续 N 轮出现完全相同的 (action, args) 即强制终止
+  loop_detect_window: 2
+  # 观察结果截断长度（防止 Observation 撑爆上下文）
+  max_observation_chars: 2000
+
+# ------------------------------------------------------------------------------
+# 对话记忆管理配置
+# ------------------------------------------------------------------------------
+memory:
+  backend: "sqlite"           # sqlite | memory
+  path: "./data/memory/chat.db"
+  max_turns: 20               # 滑动窗口保留的最大轮次
+  max_tokens: 3000            # 历史消息 Token 预算
+  summary_threshold: 12       # 超过该轮次触发摘要压缩
+  keep_recent_after_summary: 6
+
+# ------------------------------------------------------------------------------
+# 可观测性 / 日志配置
+# ------------------------------------------------------------------------------
+observability:
+  log_dir: "./logs"
+  level: "INFO"
+  # 结构化请求日志（JSONL，记录每次问答的 token/耗时/命中率）
+  trace_file: "./logs/traces.jsonl"
+  metrics_file: "./logs/metrics.jsonl"
+  # 控制台彩色输出
+  console_color: true
+
+# ------------------------------------------------------------------------------
+# 服务端配置（REST API + Web 前端）
+# ------------------------------------------------------------------------------
+server:
+  host: "127.0.0.1"
+  port: 8501
+  reload: false
+  # CORS 白名单。**留空 `[]` 表示仅同源**（默认，最安全）。
+  # 只有前后端分域部署时才需要填，例如 ["http://localhost:5173"]。
+  # ⚠️ 不要写 ["*"]：本服务的 /api/documents/add 能按本地路径建索引、
+  #    /api/chat 能读出知识库内容，通配 CORS 等于让任意网页读写你的本机知识库。
+  cors_origins: []
+  # 是否允许 HTTP 接口按**任意**本地路径导入文档。
+  # 默认 false：只允许 paths.upload_dir 与 paths.data_dir 之内的路径。
+  # 命令行 `python run.py --index <路径>` 不受此限制。
+  allow_external_paths: false
+  # 单文件上传大小上限（MB）
+  max_upload_mb: 100
+
+# ------------------------------------------------------------------------------
+# 数据目录
+# ------------------------------------------------------------------------------
+paths:
+  data_dir: "./data"
+  upload_dir: "./data/uploads"
+  index_dir: "./data/index"
+  report_dir: "./reports"
+
+# ------------------------------------------------------------------------------
+# 联网搜索工具配置（面向国内网络环境）
+#
+# —— 网页搜索（均无需 API Key，直接复用本机网络出口）——
+#   auto         （推荐）按 so360 → bing → sogou → baidu → duckduckgo 自动降级
+#   so360        360 搜索（www.so.com）—— 国内可直连，实测稳定 10 条结果
+#   bing         必应中国（cn.bing.com）—— 国内可直连，次选
+#   sogou        搜狗 —— 可能返回反爬验证页，失败时自动跳过
+#   baidu        百度 —— 可能返回"安全验证"页，失败时自动跳过
+#   duckduckgo   国外源，国内通常不可达，仅作兜底
+#
+# —— 学术搜索（工具参数 scope="academic" 时使用，无需 Key）——
+#   arxiv        抓取 arXiv 官方 API，返回标题/作者/摘要/发布日期
+#   crossref     抓取 Crossref API，返回 DOI/期刊/年份等权威元数据
+#
+# —— 商业 API（可选，需 Key）——
+#   tavily / serper
+#
+# 排障：随时查看各引擎实时可达性
+#   python -c "import sys;sys.path.insert(0,'.');from src.utils.config import load_config;
+#   from src.agent.tools import WebSearchTool;from pprint import pprint;pprint(WebSearchTool(load_config()).probe())"
+# ------------------------------------------------------------------------------
+web_search:
+  enabled: true
+  provider: "auto"
+  # 仅在 provider 为 tavily / serper 时需要
+  api_key: ""
+  max_results: 5
+  timeout: 20
+  # 留空使用内置浏览器 UA（部分引擎会校验 UA，建议保持默认）
+  user_agent: ""

@@ -1,0 +1,77 @@
+# 字节码与缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+ENV/
+
+# 运行时数据（索引 / 向量库 / 缓存 / 记忆数据库 / 上传文件）
+data/vector_store/
+data/vector_store_test/
+data/index/
+data/index_test/
+data/cache/
+data/memory/
+data/uploads/
+data/models/
+data/samples/
+# 模块联调时的临时目录（idx_m2 / vs_m3 / up_m4 ... 可随时重建）
+data/idx_*/
+data/vs_*/
+data/up_*/
+*.faiss
+*.npy
+
+# ⚠️ API 凭据（密封存储）—— 绝不允许提交到版本库
+data/secrets/
+*.sealed.json
+credentials.json
+secrets.json
+
+# 调试探针脚本（一次性验证用，不属于交付物）
+_scratch/
+
+# 日志与临时文件
+logs/
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Office 临时/锁文件
+~$*.docx
+~$*.xlsx
+
+# 评测产出说明：评测集、报告（md）、明细（json/xlsx）都入库 —— 它们是课程交付物，
+# 且由 ``APP_LLM__PROVIDER=mock python -m src.evaluation.report --quick`` 可一键复现。
+# 仅忽略评测过程中导出的中间 CSV。
+reports/*.csv
+
+# 编辑器与系统
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# 环境变量文件（可能含 API Key，绝不入库）
+.env
+.env.local
+
+# 课程下发的原始材料与文本提取件（非项目代码；交付书本身在 docs/delivery/ 下正常入库）
+南京农业大学课程实践(1).docx
+项目交付模板(1).docx
+_task_doc.txt
+_template_doc.txt
