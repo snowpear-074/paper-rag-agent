@@ -1,0 +1,126 @@
+# ==============================================================================
+# 智能科研助理 —— 一键启动全栈服务
+#
+# 使用：
+#   1) 先设置 API 密钥（密钥不打进镜像，运行时注入）：
+#        Linux/macOS : export APP_LLM__API_KEY="sk-xxxxxxxx"
+#        Windows     : $env:APP_LLM__API_KEY = "sk-xxxxxxxx"
+#   2) docker compose -f docker/docker-compose.yml up -d --build
+#   3) 浏览器打开 http://127.0.0.1:8501
+#
+# 三种模式（用环境变量或 --profile 选择）：
+#   a) 在线模式（默认）  —— 使用 DeepSeek，联网搜索用必应，开箱可用
+#   b) 本地模型模式      —— docker compose ... --profile ollama up -d
+#                          额外启动 Ollama 容器并自动拉取 Qwen2.5 + bge-large-zh
+#   c) 离线演示模式      —— LLM_PROVIDER=mock docker compose ... up -d
+#                          不发起任何外部请求，用于无网络环境演示
+# ==============================================================================
+
+name: research-assistant
+
+services:
+  # ----------------------------------------------------------------------------
+  # 应用主体：Web 服务 + Agent + 检索层
+  # ----------------------------------------------------------------------------
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: research-assistant:1.0.0
+    container_name: research-assistant-app
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    environment:
+      # ---- 服务绑定 ----
+      APP_SERVER__HOST: "0.0.0.0"
+      APP_SERVER__PORT: "8501"
+      APP_OBSERVABILITY__LEVEL: "INFO"
+      # ---- LLM：在线模式默认 DeepSeek；密钥从宿主机环境变量透传 ----
+      APP_LLM__PROVIDER: "${LLM_PROVIDER:-openai}"
+      APP_LLM__MODEL: "${LLM_MODEL:-deepseek-chat}"
+      APP_LLM__BASE_URL: "${LLM_BASE_URL:-https://api.deepseek.com}"
+      APP_LLM__API_KEY: "${APP_LLM__API_KEY:-}"
+      # ---- Embedding：DeepSeek 无 embedding 接口，默认用内置哈希向量 ----
+      APP_EMBEDDING__PROVIDER: "${EMBEDDING_PROVIDER:-hash}"
+      APP_EMBEDDING__MODEL: "${EMBEDDING_MODEL:-bge-large-zh}"
+      APP_EMBEDDING__BASE_URL: "${EMBEDDING_BASE_URL:-http://ollama:11434}"
+      APP_EMBEDDING__DIMENSION: "${EMBEDDING_DIMENSION:-512}"
+      # ---- 联网搜索：默认 bing（无需密钥），自动降级 ----
+      APP_WEB_SEARCH__ENABLED: "${WEB_SEARCH_ENABLED:-true}"
+      APP_WEB_SEARCH__PROVIDER: "${WEB_SEARCH_PROVIDER:-auto}"
+      # ---- 检索参数（可用环境变量快速调参做对比实验）----
+      APP_RETRIEVAL__TOP_K: "5"
+      APP_RETRIEVAL__CANDIDATE_K: "20"
+      APP_RETRIEVAL__ENABLE_BM25: "true"
+      APP_RETRIEVAL__ENABLE_RERANK: "true"
+    volumes:
+      # 持久化：知识库索引、向量库、缓存、对话记忆、日志、评测报告
+      - ../data:/app/data
+      - ../logs:/app/logs
+      - ../reports:/app/reports
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8501/api/health', timeout=5).status==200 else 1)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - research-net
+
+  # ----------------------------------------------------------------------------
+  # 可选的本地大模型服务（--profile ollama 时启用）
+  # 用途：① 数据完全不出容器网络；② 提供真正的语义 Embedding（DeepSeek 无此接口）
+  # ----------------------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: research-assistant-ollama
+    profiles: ["ollama"]
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: "24h"
+    networks:
+      - research-net
+    # GPU 支持：取消下面的注释（需要宿主机安装 nvidia-container-toolkit）
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # ----------------------------------------------------------------------------
+  # 模型自动拉取（一次性任务，跑完即退出）
+  # ----------------------------------------------------------------------------
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: research-assistant-ollama-pull
+    profiles: ["ollama"]
+    depends_on:
+      - ollama
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "sleep 8 &&
+       OLLAMA_HOST=http://ollama:11434 ollama pull ${OLLAMA_LLM_MODEL:-qwen2.5:7b} &&
+       OLLAMA_HOST=http://ollama:11434 ollama pull ${OLLAMA_EMBED_MODEL:-bge-large-zh} &&
+       echo '模型拉取完成'"
+    networks:
+      - research-net
+    restart: "no"
+
+volumes:
+  ollama-models:
+    driver: local
+
+networks:
+  research-net:
+    driver: bridge
