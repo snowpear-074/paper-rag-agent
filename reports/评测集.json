@@ -1,0 +1,1122 @@
+{
+  "name": "RAG+Agent 论文问答系统评测集",
+  "version": "1.0",
+  "num_items": 61,
+  "type_distribution": {
+    "factual": 25,
+    "comparison": 12,
+    "summary": 12,
+    "reasoning": 12
+  },
+  "difficulty_distribution": {
+    "easy": 15,
+    "medium": 27,
+    "hard": 19
+  },
+  "documents": [
+    "Attention Is All You Need",
+    "Deep Residual Learning for Image Recognition",
+    "BERT Pre-training of Deep Bidirectional Transformers for Language Understanding"
+  ],
+  "items": [
+    {
+      "id": "q001",
+      "question": "What datasets were used to train the Transformer?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "WMT 2014 English-German dataset consisting of about 4.5"
+      ],
+      "reference_answer": "Transformer 在 WMT 2014 英德数据集（约 450 万句对）和 WMT 2014 英法数据集（3600 万句）上训练，句子使用 byte-pair encoding 编码。",
+      "difficulty": "easy",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": "数据集类事实；同时在英文与中文问法下考察召回稳定性"
+    },
+    {
+      "id": "q002",
+      "question": "Transformer 训练用了哪些数据集？",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "WMT 2014 English-German dataset consisting of about 4.5"
+      ],
+      "reference_answer": "WMT 2014 英德数据集（约 450 万句对）与 WMT 2014 英法数据集（3600 万句）。",
+      "difficulty": "easy",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": "中文提问，靠英文术语 WMT 2014 命中"
+    },
+    {
+      "id": "q003",
+      "question": "What BLEU score does the big transformer model achieve on the WMT 2014 English-to-German task?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "the big transformer model achieves 28.4 BLEU"
+      ],
+      "reference_answer": "在 WMT 2014 英德翻译任务上，big transformer 取得 28.4 BLEU，比此前最佳结果高出 2.0 BLEU 以上。",
+      "difficulty": "easy",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": "关键指标数字，必须原样输出（28.4）"
+    },
+    {
+      "id": "q004",
+      "question": "big transformer 在 WMT 2014 英德任务上的 BLEU 分数是多少？",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "the big transformer model achieves 28.4 BLEU"
+      ],
+      "reference_answer": "28.4 BLEU。",
+      "difficulty": "easy",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": "中文问法 + 阿拉伯数字答案"
+    },
+    {
+      "id": "q005",
+      "question": "What BLEU score does the big model achieve on the WMT 2014 English-to-French task?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "the big model achieves a BLEU score of 41.8"
+      ],
+      "reference_answer": "在 WMT 2014 英法任务上，big model 取得 41.8 BLEU。",
+      "difficulty": "easy",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q006",
+      "question": "How many sentences are in the WMT 2014 English-French dataset?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "the WMT 2014 English-French dataset consisting of 36M sentences"
+      ],
+      "reference_answer": "3600 万（36M）句。",
+      "difficulty": "easy",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": "数字型事实；考察是否出现数量级错误"
+    },
+    {
+      "id": "q007",
+      "question": "How many identical layers is the Transformer encoder composed of?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "The encoder is composed of a stack of six"
+      ],
+      "reference_answer": "编码器由 6 个完全相同的层堆叠而成。",
+      "difficulty": "easy",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q008",
+      "question": "Transformer 的编码器由多少个相同的层堆叠而成？",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "The encoder is composed of a stack of six"
+      ],
+      "reference_answer": "6 层。",
+      "difficulty": "easy",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": "中文提问，靠 Transformer/encoder 术语与数字命中"
+    },
+    {
+      "id": "q009",
+      "question": "In a self-attention layer, where do the keys, values and queries come from?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "In a self-attention layer all of the"
+      ],
+      "reference_answer": "自注意力层中 keys、values、queries 全部来自同一处 —— 编码器中前一层的输出。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q010",
+      "question": "What is the total computational complexity per layer for self-attention?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "self-attention compared to O(n d^2) for"
+      ],
+      "reference_answer": "每层自注意力的计算复杂度为 O(n^2 d)，对比循环层的 O(n d^2)，其中 n 为序列长度、d 为表示维度。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": "含公式表达，考察数字/符号还原能力"
+    },
+    {
+      "id": "q011",
+      "question": "Why is multi-head attention used instead of a single attention head?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "Multi-head attention allows the model to jointly attend to information from different representation"
+      ],
+      "reference_answer": "多头注意力让模型能够同时关注不同表示子空间、不同位置的信息；单个注意力头会因平均化而抑制这种能力。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": "机制类事实：原因句在原文中明确给出"
+    },
+    {
+      "id": "q012",
+      "question": "How does Scaled Dot-Product Attention compute the weights on the values?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "We compute the dot products of the query with all keys"
+      ],
+      "reference_answer": "先计算 query 与所有 key 的点积，各自除以 sqrt(dk)，再用 softmax 得到作用在 value 上的权重。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q013",
+      "question": "What is the dimension of the queries and keys in Scaled Dot-Product Attention?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "of dimension dk, and values of dimension dv."
+      ],
+      "reference_answer": "queries 与 keys 的维度为 dk，values 的维度为 dv。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q014",
+      "question": "What top-5 error does the ensemble ResNet achieve on the ImageNet test set?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Deep Residual Learning for Image Recognition"
+      ],
+      "gold_texts": [
+        "The ensemble ResNet achieves 3.57 percent top-5 error on the"
+      ],
+      "reference_answer": "集成 ResNet 在 ImageNet 测试集上取得 3.57% 的 top-5 错误率。",
+      "difficulty": "easy",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q015",
+      "question": "ResNet 在 ImageNet 测试集上的 top-5 错误率是多少？",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Deep Residual Learning for Image Recognition"
+      ],
+      "gold_texts": [
+        "The ensemble ResNet achieves 3.57 percent top-5 error on the"
+      ],
+      "reference_answer": "3.57%。",
+      "difficulty": "easy",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": "中文提问，靠 ResNet/ImageNet/5 等术语命中"
+    },
+    {
+      "id": "q016",
+      "question": "How many training images does the ImageNet 2012 classification dataset contain?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Deep Residual Learning for Image Recognition"
+      ],
+      "gold_texts": [
+        "models are trained on the 1.28 million training images and evaluated on the 50k validation images."
+      ],
+      "reference_answer": "ImageNet 2012 含 1000 个类别，使用 128 万张训练图像，在 5 万张验证图像上评估。",
+      "difficulty": "easy",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q017",
+      "question": "How many FLOPs does the 152-layer ResNet have compared with VGG?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Deep Residual Learning for Image Recognition"
+      ],
+      "gold_texts": [
+        "Our 152-layer ResNet has 11.3 billion FLOPs, still lower than"
+      ],
+      "reference_answer": "152 层 ResNet 为 113 亿（11.3 billion）FLOPs，低于 VGG-16 的 153 亿与 VGG-19 的 196 亿 FLOPs。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q018",
+      "question": "What is the formulation that the stacked nonlinear layers are asked to fit in residual learning?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Deep Residual Learning for Image Recognition"
+      ],
+      "gold_texts": [
+        "we let the stacked nonlinear layers fit another mapping of F(x) = H(x) - x"
+      ],
+      "reference_answer": "让堆叠的非线性层去拟合残差映射 F(x) = H(x) - x，原始映射被改写为 F(x) + x。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": "含数学符号，考察公式还原"
+    },
+    {
+      "id": "q019",
+      "question": "What are shortcut connections in the residual learning formulation?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Deep Residual Learning for Image Recognition"
+      ],
+      "gold_texts": [
+        "Shortcut connections are those skipping one or more layers."
+      ],
+      "reference_answer": "shortcut connection 指跳过一层或多层的连接，用于实现 F(x) + x 的前馈网络结构。",
+      "difficulty": "easy",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q020",
+      "question": "Does the ResNet paper report degradation caused by overfitting?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "Deep Residual Learning for Image Recognition"
+      ],
+      "gold_texts": [
+        "network depth increasing, accuracy gets saturated and then degrades rapidly. Unexpectedly, such"
+      ],
+      "reference_answer": "不是。论文明确指出退化问题并非由过拟合引起。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": "否定型事实，考察是否误读原文"
+    },
+    {
+      "id": "q021",
+      "question": "What model sizes does BERT report: layers, hidden size and attention heads?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "BERT Pre-training of Deep Bidirectional Transformers for Language Understanding"
+      ],
+      "gold_texts": [
+        "BERT BASE with L=12, H=768, A=12, and BERT LARGE"
+      ],
+      "reference_answer": "BERT BASE：L=12、H=768、A=12；BERT LARGE：L=24、H=1024、A=16。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q022",
+      "question": "BERT BASE 的层数、隐藏层维度和注意力头数分别是多少？",
+      "type": "factual",
+      "gold_doc_titles": [
+        "BERT Pre-training of Deep Bidirectional Transformers for Language Understanding"
+      ],
+      "gold_texts": [
+        "BERT BASE with L=12, H=768, A=12, and BERT LARGE"
+      ],
+      "reference_answer": "L=12、H=768、A=12。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": "中文提问，靠 BERT BASE / L=12 / H=768 等英文术语命中"
+    },
+    {
+      "id": "q023",
+      "question": "What vocabulary size does BERT WordPiece use?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "BERT Pre-training of Deep Bidirectional Transformers for Language Understanding"
+      ],
+      "gold_texts": [
+        "BERT uses WordPiece embeddings with a 30000 token vocabulary."
+      ],
+      "reference_answer": "BERT 使用 30000 词表的 WordPiece 嵌入。",
+      "difficulty": "easy",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q024",
+      "question": "What F1 does BERT achieve on SQuAD v1.1 question answering?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "BERT Pre-training of Deep Bidirectional Transformers for Language Understanding"
+      ],
+      "gold_texts": [
+        "BERT achieves 93.2 F1 on the test set"
+      ],
+      "reference_answer": "在 SQuAD v1.1 上 BERT 于测试集取得 93.2 F1，比此前最佳集成系统提升 1.5。",
+      "difficulty": "easy",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q025",
+      "question": "What is the second pre-training task of BERT?",
+      "type": "factual",
+      "gold_doc_titles": [
+        "BERT Pre-training of Deep Bidirectional Transformers for Language Understanding"
+      ],
+      "gold_texts": [
+        "The second pre-training task is next sentence prediction."
+      ],
+      "reference_answer": "第二个预训练任务是下一句预测（next sentence prediction）。",
+      "difficulty": "easy",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q026",
+      "question": "Compare how the Transformer and ResNet reduce the difficulty of training deep models.",
+      "type": "comparison",
+      "gold_doc_titles": [
+        "Attention Is All You Need",
+        "Deep Residual Learning for Image Recognition"
+      ],
+      "gold_texts": [
+        "Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions",
+        "let these layers fit a residual mapping."
+      ],
+      "reference_answer": "Transformer 从序列建模入手：完全抛弃循环与卷积，只用注意力机制，从而解除序列依赖带来的并行化限制；ResNet 从优化难度入手：让堆叠层拟合残差映射 F(x) = H(x) - x，使极深网络可训练。两者都提升了「深」模型的可训练性，但一个改结构、一个改学习目标。",
+      "difficulty": "hard",
+      "expected_tools": [
+        "paper_compare",
+        "knowledge_search"
+      ],
+      "notes": "跨文档对比：证据必须来自两篇不同论文"
+    },
+    {
+      "id": "q027",
+      "question": "对比 Transformer 与 BERT 在预训练与训练目标上的区别。",
+      "type": "comparison",
+      "gold_doc_titles": [
+        "Attention Is All You Need",
+        "BERT Pre-training of Deep Bidirectional Transformers for Language Understanding"
+      ],
+      "gold_texts": [
+        "The total computational complexity per layer is O(n^2 d) for self-attention",
+        "we simply mask some percentage of the input"
+      ],
+      "reference_answer": "Transformer 是端到端的序列转换架构，用编码器-解码器与多头自注意力做机器翻译，训练目标是翻译任务本身；BERT 只取 Transformer 的编码器结构，通过随机 mask 输入 token 并预测（masked language model）做双向预训练，再用微调迁移到下游任务。",
+      "difficulty": "hard",
+      "expected_tools": [
+        "paper_compare",
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q028",
+      "question": "Compare the training data scale of the Transformer and ResNet experiments.",
+      "type": "comparison",
+      "gold_doc_titles": [
+        "Attention Is All You Need",
+        "Deep Residual Learning for Image Recognition"
+      ],
+      "gold_texts": [
+        "We trained on the WMT 2014 English-German dataset consisting of about 4.5 million sentence pairs, and",
+        "models are trained on the 1.28 million training images and evaluated on the 50k validation images."
+      ],
+      "reference_answer": "Transformer 使用 WMT 2014 英德 450 万句对（另有英法 3600 万句）；ResNet 使用 ImageNet 2012 的 128 万张训练图像、5 万张验证图像。两者量级接近但任务类型不同（句对 vs 图像），不宜直接比大小。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "paper_compare",
+        "knowledge_search"
+      ],
+      "notes": "对比型问题，但正确答案需要指出「不可直接比较」"
+    },
+    {
+      "id": "q029",
+      "question": "How do the Transformer's BLEU results on English-German and English-French compare with what the paper reports as previous best?",
+      "type": "comparison",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "outperforming the best previously reported results by more"
+      ],
+      "reference_answer": "英德任务 28.4 BLEU，比此前最佳结果高出 2.0 BLEU 以上；英法任务 41.8 BLEU，以不到四分之一训练成本超越所有已发表单模型。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q030",
+      "question": "Compare the goals of the degradation problem in ResNet and the unidirectional limitation in BERT.",
+      "type": "comparison",
+      "gold_doc_titles": [
+        "Deep Residual Learning for Image Recognition",
+        "BERT Pre-training of Deep Bidirectional Transformers for Language Understanding"
+      ],
+      "gold_texts": [
+        "degradation is not caused by overfitting.",
+        "they are unidirectional, which limits the"
+      ],
+      "reference_answer": "ResNet 的退化问题是**优化层面**的：层数增加时准确率先饱和后快速下降，且并非过拟合；BERT 指出的单向性是**表示层面**的：标准语言模型只能从左到右建模，限制了预训练可用的架构。两者分别通过残差学习与 masked language model 解决。",
+      "difficulty": "hard",
+      "expected_tools": [
+        "paper_compare",
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q031",
+      "question": "对比 Transformer 中自注意力与循环层的计算复杂度差异。",
+      "type": "comparison",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "self-attention compared to O(n d^2) for"
+      ],
+      "reference_answer": "每层自注意力复杂度为 O(n^2 d)，循环层为 O(n d^2)（n 为序列长度，d 为表示维度）。序列较短时循环层更省算力，但循环层无法在序列内并行，这是自注意力在大规模训练上的关键优势。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q032",
+      "question": "Compare plain networks and residual networks as depth increases in the ResNet paper.",
+      "type": "comparison",
+      "gold_doc_titles": [
+        "Deep Residual Learning for Image Recognition"
+      ],
+      "gold_texts": [
+        "The residual networks instead show"
+      ],
+      "reference_answer": "普通网络加深后验证误差反而升高（34 层差于 18 层）；残差网络则随深度增加准确率持续提升。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q033",
+      "question": "Compare the pre-training tasks used by BERT and the training objective of the Transformer.",
+      "type": "comparison",
+      "gold_doc_titles": [
+        "BERT Pre-training of Deep Bidirectional Transformers for Language Understanding",
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "We refer to this procedure as a masked language model,",
+        "the big transformer model achieves 28.4 BLEU"
+      ],
+      "reference_answer": "BERT 的预训练目标是 masked language model 与 next sentence prediction（自监督、双任务）；Transformer 是有监督的序列到序列翻译目标（WMT 2014 英德任务取得 28.4 BLEU）。前者学通用语言表示，后者直接学任务映射。",
+      "difficulty": "hard",
+      "expected_tools": [
+        "paper_compare",
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q034",
+      "question": "对比 ResNet 与 VGG 在同等精度下的计算量。",
+      "type": "comparison",
+      "gold_doc_titles": [
+        "Deep Residual Learning for Image Recognition"
+      ],
+      "gold_texts": [
+        "Our 152-layer ResNet has 11.3 billion FLOPs, still lower than"
+      ],
+      "reference_answer": "152 层 ResNet 为 11.3 billion FLOPs，低于 VGG-16 的 15.3 billion 与 VGG-19 的 19.6 billion，即在更深的前提下计算量反而更低。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q035",
+      "question": "Which paper reports 3.57 percent top-5 error, and which reports 28.4 BLEU?",
+      "type": "comparison",
+      "gold_doc_titles": [
+        "Deep Residual Learning for Image Recognition",
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "The ensemble ResNet achieves 3.57 percent top-5 error on the",
+        "the big transformer model achieves 28.4 BLEU"
+      ],
+      "reference_answer": "3.57% top-5 error 来自 Deep Residual Learning for Image Recognition（ImageNet 分类）；28.4 BLEU 来自 Attention Is All You Need（WMT 2014 英德翻译）。两个指标属于不同任务，不可横向比较。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "paper_compare",
+        "knowledge_search"
+      ],
+      "notes": "数字 ↔ 论文归属的对照，专治「张冠李戴」"
+    },
+    {
+      "id": "q036",
+      "question": "Contrast the evaluation tasks used by the Transformer, ResNet and BERT papers.",
+      "type": "comparison",
+      "gold_doc_titles": [
+        "Attention Is All You Need",
+        "Deep Residual Learning for Image Recognition",
+        "BERT Pre-training of Deep Bidirectional Transformers for Language Understanding"
+      ],
+      "gold_texts": [
+        "Experiments on two machine translation tasks show these models",
+        "achieving 3.57 percent top-5 error and winning the ILSVRC 2015 classification task.",
+        "BERT advances the state of the art for eleven NLP tasks."
+      ],
+      "reference_answer": "Transformer 在 WMT 2014 两个机器翻译任务上评估；ResNet 在 ImageNet 2012 分类（ILSVRC 2015）上评估；BERT 在 11 个 NLP 任务（GLUE、SQuAD v1.1 等）上评估。",
+      "difficulty": "hard",
+      "expected_tools": [
+        "paper_compare",
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q037",
+      "question": "对比三篇论文的核心贡献与总体规模指标。",
+      "type": "comparison",
+      "gold_doc_titles": [
+        "Attention Is All You Need",
+        "Deep Residual Learning for Image Recognition",
+        "BERT Pre-training of Deep Bidirectional Transformers for Language Understanding"
+      ],
+      "gold_texts": [
+        "Experiments on two machine translation tasks show these models",
+        "achieving 3.57 percent top-5 error and winning the ILSVRC 2015 classification task.",
+        "obtains an average accuracy of 80.5 percent"
+      ],
+      "reference_answer": "Transformer 提出纯注意力架构（28.4/41.8 BLEU）；ResNet 提出残差学习使 152 层网络可训练（3.57% top-5 error）；BERT 提出双向预训练语言表示（GLUE 平均 80.5%）。",
+      "difficulty": "hard",
+      "expected_tools": [
+        "paper_compare",
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q038",
+      "question": "Summarize the main contributions of the Transformer paper.",
+      "type": "summary",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions",
+        "In this work, we presented the Transformer, the first sequence transduction model based entirely on"
+      ],
+      "reference_answer": "论文提出 Transformer —— 首个完全基于注意力机制的序列转换模型，用多头自注意力替代编码器-解码器中最常用的循环层，在两项机器翻译任务上取得更高质量，同时更易并行、训练时间显著更短。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "summarize_paper",
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q039",
+      "question": "总结 Attention Is All You Need 这篇论文的主要内容。",
+      "type": "summary",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions",
+        "In this work, we presented the Transformer, the first sequence transduction model based entirely on"
+      ],
+      "reference_answer": "提出 Transformer 架构：完全摒弃循环与卷积，仅用（多头）自注意力；给出 Scaled Dot-Product Attention、编码器-解码器结构；在 WMT 2014 英德/英法任务上取得 28.4 / 41.8 BLEU。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "summarize_paper",
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q040",
+      "question": "Summarize the datasets and evaluation metrics used in the Transformer paper.",
+      "type": "summary",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "WMT 2014 English-German dataset consisting of about 4.5",
+        "the big transformer model achieves 28.4 BLEU"
+      ],
+      "reference_answer": "数据集：WMT 2014 英德（450 万句对）与英法（3600 万句）；评价指标：BLEU（英德 28.4、英法 41.8）。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "summarize_paper",
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q041",
+      "question": "Give an overview of the main results reported in the ResNet paper.",
+      "type": "summary",
+      "gold_doc_titles": [
+        "Deep Residual Learning for Image Recognition"
+      ],
+      "gold_texts": [
+        "networks. Our results demonstrate that residual learning is generic and can be applied to other",
+        "The ensemble ResNet achieves 3.57 percent top-5 error on the"
+      ],
+      "reference_answer": "残差学习框架使极深网络易于训练：18/34 层的对比实验显示残差网络精度随深度提升；152 层 ResNet 仅 11.3 billion FLOPs；集成模型在 ImageNet 测试集取得 3.57% top-5 错误率并赢得 ILSVRC 2015 分类任务。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "summarize_paper",
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q042",
+      "question": "概括 Deep Residual Learning for Image Recognition 的实验设置与结论。",
+      "type": "summary",
+      "gold_doc_titles": [
+        "Deep Residual Learning for Image Recognition"
+      ],
+      "gold_texts": [
+        "We test our method on the ImageNet 2012 classification dataset that consists of 1000 classes. The",
+        "networks. Our results demonstrate that residual learning is generic and can be applied to other"
+      ],
+      "reference_answer": "实验设置：ImageNet 2012（1000 类、128 万训练图像、5 万验证图像），对比 18/34 层普通网络与残差网络，并训练 152 层模型；结论：残差学习通用、可迁移到视觉与非视觉问题，深度增加不再带来退化。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "summarize_paper",
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q043",
+      "question": "Summarize the BERT paper's model architecture and pre-training tasks.",
+      "type": "summary",
+      "gold_doc_titles": [
+        "BERT Pre-training of Deep Bidirectional Transformers for Language Understanding"
+      ],
+      "gold_texts": [
+        "we simply mask some percentage of the input",
+        "BERT BASE with L=12, H=768, A=12, and BERT LARGE"
+      ],
+      "reference_answer": "架构：多层双向 Transformer 编码器，BASE（L=12/H=768/A=12）与 LARGE（L=24/H=1024/A=16）两种规模；预训练任务：masked language model（MLM）与 next sentence prediction。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "summarize_paper",
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q044",
+      "question": "总结 BERT 论文在 GLUE 与 SQuAD 上的性能表现。",
+      "type": "summary",
+      "gold_doc_titles": [
+        "BERT Pre-training of Deep Bidirectional Transformers for Language Understanding"
+      ],
+      "gold_texts": [
+        "obtains an average accuracy of 80.5 percent",
+        "BERT achieves 93.2 F1 on the test set"
+      ],
+      "reference_answer": "GLUE 上 BERT LARGE 平均准确率 80.5%，比此前 SOTA 绝对提升 7.6 个百分点；SQuAD v1.1 测试集 93.2 F1，比此前最佳集成系统提升 1.5。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "summarize_paper",
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q045",
+      "question": "Provide a structured summary of the Transformer architecture.",
+      "type": "summary",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "Most competitive neural sequence transduction models have an encoder-decoder structure. The encoder",
+        "connected layers for both the encoder and decoder. The encoder is composed of a stack of six"
+      ],
+      "reference_answer": "结构：编码器-解码器；编码器为 6 层相同层的堆叠，每层含自注意力与前馈层；注意力采用 Scaled Dot-Product Attention 与多头机制；每层自注意力复杂度 O(n^2 d)。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "summarize_paper",
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q046",
+      "question": "Overview the three papers' target tasks, datasets and headline results.",
+      "type": "summary",
+      "gold_doc_titles": [
+        "Attention Is All You Need",
+        "Deep Residual Learning for Image Recognition",
+        "BERT Pre-training of Deep Bidirectional Transformers for Language Understanding"
+      ],
+      "gold_texts": [
+        "Experiments on two machine translation tasks show these models",
+        "achieving 3.57 percent top-5 error and winning the ILSVRC 2015 classification task.",
+        "obtains an average accuracy of 80.5 percent"
+      ],
+      "reference_answer": "Transformer：机器翻译（WMT 2014 英德/英法），28.4 / 41.8 BLEU；ResNet：图像分类（ImageNet 2012），3.57% top-5 error；BERT：11 项 NLP 任务（GLUE/SQuAD），GLUE 平均 80.5%、SQuAD 93.2 F1。",
+      "difficulty": "hard",
+      "expected_tools": [
+        "summarize_paper",
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q047",
+      "question": "Summarize how the Transformer paper motivates attention over recurrence.",
+      "type": "summary",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "This inherently sequential nature precludes",
+        "allowing modeling of dependencies without regard to their distance in the"
+      ],
+      "reference_answer": "动机：循环模型沿符号位置逐步计算，这种固有的顺序性阻碍了训练样本内的并行化，序列越长越严重；注意力机制可以在不考虑距离的情况下建模依赖关系，因此论文用注意力完全替代循环结构。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "summarize_paper",
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q048",
+      "question": "概括 ResNet 论文提出的退化问题及其解决方案。",
+      "type": "summary",
+      "gold_doc_titles": [
+        "Deep Residual Learning for Image Recognition"
+      ],
+      "gold_texts": [
+        "a degradation problem has been exposed",
+        "mapping as H(x), we let the stacked nonlinear layers fit another mapping of F(x) = H(x) - x. The"
+      ],
+      "reference_answer": "问题：网络加深到一定程度后准确率饱和并快速下降，且该退化并非过拟合导致；方案：引入残差学习框架，让堆叠层拟合 F(x) = H(x) - x，通过 shortcut connection 实现 F(x) + x。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "summarize_paper",
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q049",
+      "question": "Summarize the ablation findings reported in the BERT paper.",
+      "type": "summary",
+      "gold_doc_titles": [
+        "BERT Pre-training of Deep Bidirectional Transformers for Language Understanding"
+      ],
+      "gold_texts": [
+        "relative importance. The model without the next sentence prediction task hurts performance on the",
+        "Training with a masked language model is crucial"
+      ],
+      "reference_answer": "消融结论：去掉 next sentence prediction 会显著损害自然语言推理任务的表现；masked language model 至关重要 —— 从左到右的语言模型在每一项任务上都更差，在问答与命名实体识别上差距尤为显著。",
+      "difficulty": "medium",
+      "expected_tools": [
+        "summarize_paper",
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q050",
+      "question": "Why does the Transformer replace recurrence with self-attention instead of simply stacking more recurrent layers?",
+      "type": "reasoning",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "This inherently sequential nature precludes"
+      ],
+      "reference_answer": "因为循环结构的逐位置计算天然串行，无法在一个训练样本内并行化，序列变长时内存约束又限制了跨样本批处理；而自注意力不依赖序列距离建模依赖，可并行计算，因此能显著缩短训练时间并提升质量。",
+      "difficulty": "hard",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q051",
+      "question": "为什么 Transformer 要用自注意力替代循环结构？",
+      "type": "reasoning",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "This inherently sequential nature precludes"
+      ],
+      "reference_answer": "循环结构的顺序性阻碍样本内并行化，长序列时尤为严重；自注意力允许不考虑距离地建模依赖关系，可并行且训练更快。",
+      "difficulty": "hard",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": "中文因果推理，靠术语并行化/注意力/序列命中"
+    },
+    {
+      "id": "q052",
+      "question": "Explain why BERT uses a masked language model instead of a standard left-to-right language model.",
+      "type": "reasoning",
+      "gold_doc_titles": [
+        "BERT Pre-training of Deep Bidirectional Transformers for Language Understanding"
+      ],
+      "gold_texts": [
+        "they are unidirectional, which limits the"
+      ],
+      "reference_answer": "标准语言模型是单向的，这限制了预训练阶段可用的架构；随机 mask 一部分输入 token 再预测它们，使模型能同时利用左右两侧上下文，从而学到真正的双向表示。",
+      "difficulty": "hard",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q053",
+      "question": "How does the complexity of self-attention compare with recurrent layers, and when is each preferable?",
+      "type": "reasoning",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "self-attention compared to O(n d^2) for"
+      ],
+      "reference_answer": "自注意力为 O(n^2 d)，循环层为 O(n d^2)。当序列长度 n 小于表示维度 d 时自注意力更省算力，且可并行；n 很大时自注意力的平方项会成为瓶颈，这也是论文提出受限局部注意力的动机。",
+      "difficulty": "hard",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q054",
+      "question": "Why does adding more layers to a plain network hurt accuracy, and how does residual learning fix it?",
+      "type": "reasoning",
+      "gold_doc_titles": [
+        "Deep Residual Learning for Image Recognition"
+      ],
+      "gold_texts": [
+        "The degradation problem suggests that the solvers might have difficulties in"
+      ],
+      "reference_answer": "退化并非过拟合，而是深层网络难以用多个非线性层逼近恒等映射；残差重写后，若恒等映射最优，求解器只需把非线性层权重推向零即可，优化问题因此变得容易，精度可随深度持续提升。",
+      "difficulty": "hard",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q055",
+      "question": "为什么加深普通网络反而会导致精度下降？",
+      "type": "reasoning",
+      "gold_doc_titles": [
+        "Deep Residual Learning for Image Recognition"
+      ],
+      "gold_texts": [
+        "When deeper networks are able to start converging, a degradation problem has been exposed: with the"
+      ],
+      "reference_answer": "这是退化问题而非过拟合：网络越深，准确率先饱和后快速下降。残差学习通过让层拟合残差映射 F(x) = H(x) - x 缓解该问题。",
+      "difficulty": "hard",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q056",
+      "question": "Explain why the 152-layer ResNet uses fewer FLOPs than VGG-16 despite being much deeper.",
+      "type": "reasoning",
+      "gold_doc_titles": [
+        "Deep Residual Learning for Image Recognition"
+      ],
+      "gold_texts": [
+        "Our 152-layer ResNet has 11.3 billion FLOPs, still lower than"
+      ],
+      "reference_answer": "计算量取决于每层的通道数与空间分辨率，而非层数：ResNet 通过全局平均池化与瓶颈式的通道配置显著降低了单层开销，因此 152 层（11.3 billion FLOPs）仍低于 VGG-16（15.3 billion）。",
+      "difficulty": "hard",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": "多跳推理：需要把 FLOPs 数值与网络设计常识结合"
+    },
+    {
+      "id": "q057",
+      "question": "Why does the Transformer encoder use six identical layers rather than heterogeneous layers?",
+      "type": "reasoning",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "The Transformer follows this overall architecture using stacked self-attention"
+      ],
+      "reference_answer": "原文只说明编码器由 6 个相同层堆叠、解码器同样采用堆叠自注意力与前馈层，并给出每层复杂度 O(n^2 d)。「为什么选择同构堆叠」论文未直接论证 —— 只能推断同构堆叠便于参数共享与深堆叠，属于推断而非原文结论。",
+      "difficulty": "hard",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": "**拒答型样本**：考察系统是否会把推断伪装成原文结论（faithfulness 会暴露）"
+    },
+    {
+      "id": "q058",
+      "question": "What did the BERT ablation show about the relative importance of the two pre-training tasks?",
+      "type": "reasoning",
+      "gold_doc_titles": [
+        "BERT Pre-training of Deep Bidirectional Transformers for Language Understanding"
+      ],
+      "gold_texts": [
+        "relative importance. The model without the next sentence prediction task hurts performance on the",
+        "Training with a masked language model is crucial"
+      ],
+      "reference_answer": "消融显示 masked language model 更关键：去掉它后每项任务都变差；去掉 next sentence prediction 主要损害自然语言推理类任务。即 MLM 提供通用语言表示能力，NSP 更偏向句间关系任务。",
+      "difficulty": "hard",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q059",
+      "question": "How does the illusion of a single attention head relate to the need for multiple heads?",
+      "type": "reasoning",
+      "gold_doc_titles": [
+        "Attention Is All You Need"
+      ],
+      "gold_texts": [
+        "Multi-head attention allows the model to jointly attend to information from different representation",
+        "subspaces at different positions. With a single attention head, averaging inhibits this."
+      ],
+      "reference_answer": "多头注意力可以并行关注不同表示子空间与不同位置的信息；若只用单个注意力头，平均化会抑制这种多子空间建模能力，因此多头是必要的。",
+      "difficulty": "hard",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q060",
+      "question": "为什么 BERT 需要微调而不是直接使用预训练模型？",
+      "type": "reasoning",
+      "gold_doc_titles": [
+        "BERT Pre-training of Deep Bidirectional Transformers for Language Understanding"
+      ],
+      "gold_texts": [
+        "The feature-based approach uses task-specific architectures",
+        "we simply mask some percentage of the input"
+      ],
+      "reference_answer": "预训练只提供通用双向语言表示；下游任务形态各异，因此论文采用微调策略（区别于固定特征的特征式做法），用少量任务数据把预训练表示适配到具体任务上。",
+      "difficulty": "hard",
+      "expected_tools": [
+        "knowledge_search"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "q061",
+      "question": "Given the abstract-level claims of the three papers, which one's central claim is best supported by a single quantitative result?",
+      "type": "reasoning",
+      "gold_doc_titles": [
+        "Attention Is All You Need",
+        "Deep Residual Learning for Image Recognition",
+        "BERT Pre-training of Deep Bidirectional Transformers for Language Understanding"
+      ],
+      "gold_texts": [
+        "achieving 3.57 percent top-5 error and winning the ILSVRC 2015 classification task.",
+        "the big transformer model achieves 28.4 BLEU"
+      ],
+      "reference_answer": "三篇论文都给出了可核验的量化结果：Transformer 28.4/41.8 BLEU、ResNet 3.57% top-5 error 并赢得 ILSVRC 2015、BERT GLUE 平均 80.5%。其中 ResNet 的结论与「赢得 ILSVRC 2015 分类任务」这一外部可验证事实绑定最紧，单一数字（3.57%）即可支撑其核心主张。",
+      "difficulty": "hard",
+      "expected_tools": [
+        "paper_compare",
+        "knowledge_search"
+      ],
+      "notes": "开放性判断题：考察是否给出多篇证据并明确推理依据"
+    }
+  ]
+}
