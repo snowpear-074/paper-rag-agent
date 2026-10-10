@@ -22,6 +22,7 @@
 - [Docker 部署](#docker-部署)
 - [API 文档](#api-文档)
 - [测试](#测试)
+- [课程交付物](#课程交付物)
 - [常见问题](#常见问题)
 - [设计取舍](#设计取舍)
 
@@ -754,6 +755,28 @@ python -m src.evaluation.eval_set                 # 生成评测集
 python -m src.evaluation.report --quick           # 快速评测 + 报告
 python -m src.evaluation.report                   # 完整评测
 python -m src.evaluation.chunking_experiment      # 四种分块策略对比实验
+```
+
+---
+
+## 课程交付物
+
+| 交付物 | 位置 | 生成方式 |
+| --- | --- | --- |
+| 项目交付书（Word） | `智能科研助理_项目交付书.docx` | `python scripts/make_delivery_doc.py` |
+| 系统评测报告 | `reports/系统评测报告.md` | `APP_LLM__PROVIDER=mock python -m src.evaluation.report --quick` |
+| 分块策略对比实验报告 | `reports/分块策略对比实验报告.md` | `python -m src.evaluation.chunking_experiment` |
+| Bad Case 分析报告 | `reports/Bad_Case分析报告.md` | 同上（随评测报告一并生成） |
+| 评测集 | `reports/评测集.json` | `python -m src.evaluation.eval_set` |
+| 技术设计文档 | `docs/技术设计文档.md` | 手写维护 |
+| 用户使用手册 | `docs/用户使用手册.md` | 手写维护 |
+
+交付书由脚本生成而非手敲，好处是**文档里的数字与 `reports/` 下的评测产物同源**：
+重跑评测后执行生成脚本，指标、目录树与代码行数会自动跟上，不会出现
+「报告更新了、文档还写着旧数」的情况。重新生成只需：
+
+```bash
+python scripts/make_delivery_doc.py
 ```
 
 ---
