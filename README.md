@@ -92,10 +92,11 @@ python -m src.utils.secrets set llm_api_key
 
 # 3) 环境自检 + 生成样例论文 + 建立索引 + 启动
 python scripts/bootstrap.py --index
-python run.py --open
+python run.py
 ```
 
-浏览器会自动打开 <http://127.0.0.1:8501>。
+`python run.py` 启动后会**自动打开浏览器**并跳到 <http://127.0.0.1:8501>
+（Docker / 无桌面环境会自动跳过；加 `--no-open` 可强制不打开）。
 
 > 大模型默认使用 **DeepSeek（`deepseek-chat`）**，联网搜索默认使用
 > **必应（无需任何额外密钥）**。两项都开箱即用，无需改配置。
@@ -465,7 +466,8 @@ python run.py [选项]
   --host HOST           监听地址（默认 127.0.0.1）
   --port PORT           监听端口（默认 8501，被占用时自动顺延）
   --config PATH         指定配置文件
-  --open                启动后自动打开浏览器
+  --open                启动后自动打开浏览器（默认行为，保留以兼容旧命令）
+  --no-open             启动后不打开浏览器（Docker / 无桌面环境自动跳过）
   --cli                 命令行交互模式
   --index PATH          导入文件或目录后退出
   --strategy NAME       分块策略：fixed / recursive / semantic / paper

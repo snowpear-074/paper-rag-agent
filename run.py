@@ -4,7 +4,8 @@
 用法::
 
     python run.py                      # 启动 Web 服务（默认 http://127.0.0.1:8501）
-    python run.py --open               # 启动并自动打开浏览器
+                                       # 启动后自动打开浏览器
+    python run.py --no-open            # 只启动服务，手动访问界面地址
     python run.py --cli                # 命令行交互模式
     python run.py --index ./data/samples   # 批量导入论文后退出
     python run.py --health             # 查看各组件健康状态

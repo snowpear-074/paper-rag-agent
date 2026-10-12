@@ -11,7 +11,8 @@
 ``--host`` / ``--port``   绑定地址与端口（端口占用时自动顺延）
 ``--config``              指定配置文件路径
 ``--cli``                 启动命令行交互模式
-``--open``                启动后自动打开浏览器
+``--open``                启动后自动打开浏览器（**已是默认行为**，保留以兼容旧命令）
+``--no-open``             启动后不打开浏览器（Docker / 无桌面环境会自动跳过）
 ``--list-tools``          列出全部可用工具后退出
 ``--health``              打印健康检查结果后退出
 ``--index PATH``          导入文档/目录并建立索引后退出
@@ -21,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -51,8 +53,9 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "示例：\n"
-            "  python run.py                          # 启动 Web 界面\n"
-            "  python run.py --port 8600 --open       # 指定端口并自动打开浏览器\n"
+            "  python run.py                          # 启动 Web 界面（自动打开浏览器）\n"
+            "  python run.py --port 8600              # 指定端口\n"
+            "  python run.py --no-open                # 只启动服务，不打开浏览器\n"
             "  python run.py --cli                    # 命令行交互模式\n"
             "  python run.py --index ./data/samples   # 批量导入论文后退出\n"
             "  python run.py --health                 # 查看各组件健康状态\n"
@@ -62,7 +65,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--port", type=int, default=None, help="监听端口（默认 8501，被占用时自动顺延）")
     parser.add_argument("--config", default=None, help="配置文件路径（默认 ./config.yaml）")
     parser.add_argument("--cli", action="store_true", help="启动命令行交互模式")
-    parser.add_argument("--open", action="store_true", help="启动后自动打开浏览器")
+    parser.add_argument("--open", action="store_true",
+                        help="启动后自动打开浏览器（默认行为，保留以兼容旧命令）")
+    parser.add_argument("--no-open", action="store_true",
+                        help="启动后不打开浏览器（Docker / 无桌面环境会自动跳过）")
     parser.add_argument("--list-tools", action="store_true", help="列出全部工具后退出")
     parser.add_argument("--health", action="store_true", help="打印健康检查结果后退出")
     parser.add_argument("--index", default=None, help="导入指定文件或目录后退出")
@@ -76,13 +82,30 @@ def build_parser() -> argparse.ArgumentParser:
 # ==============================================================================
 # 各模式实现
 # ==============================================================================
+def _browser_open_disabled() -> bool:
+    """运行环境是否不适合弹浏览器（容器 / 无桌面 / 显式关闭）。"""
+    if os.environ.get("APP_NO_BROWSER", "").strip().lower() in {"1", "true", "yes", "on"}:
+        return True
+    # Docker：容器里没有用户的桌面，弹窗无意义
+    if Path("/.dockerenv").exists() or os.environ.get("APP_IN_CONTAINER") == "1":
+        return True
+    # Linux 无 DISPLAY 的纯命令行环境
+    if sys.platform.startswith("linux") and not os.environ.get("DISPLAY"):
+        return True
+    return False
+
+
 def run_server(
     host: Optional[str] = None,
     port: Optional[int] = None,
     config: Any = None,
-    open_browser: bool = False,
+    open_browser: Optional[bool] = None,
 ) -> None:
-    """启动 Web 服务。"""
+    """启动 Web 服务。
+
+    ``open_browser``：``True`` 强制打开、``False`` 强制不打开、
+    ``None``（默认）按环境自动判断 —— 桌面环境打开浏览器，容器/无桌面跳过。
+    """
     cfg = config or load_config()
     bind_host = host or str(cfg.server.host)
     requested_port = int(port or cfg.server.port)
@@ -97,13 +120,17 @@ def run_server(
         _log.warning("端口 %d 已被占用，自动改用 %d", requested_port, actual_port)
 
     api = ApiServer(container, host=bind_host, port=actual_port)
-    if open_browser:
+    should_open = (not _browser_open_disabled()) if open_browser is None else bool(open_browser)
+    if should_open:
         import threading
         import webbrowser
 
         display = "127.0.0.1" if bind_host in ("0.0.0.0", "::") else bind_host
         url = f"http://{display}:{actual_port}"
+        # 延迟 1.2s，等服务真正 listen 之后再弹，避免"safari 打不开页面"
         threading.Timer(1.2, lambda: webbrowser.open(url)).start()
+    else:
+        _log.info("未打开浏览器（可用 --open 强制打开）：请手动访问上方界面地址")
     api.serve_forever()
 
 
@@ -292,7 +319,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         run_cli(config, strategy=args.strategy)
         return 0
 
-    run_server(args.host, args.port, config, open_browser=args.open)
+    # --open 是默认行为；只有显式 --no-open 才关闭（--open 仍可写，用于兼容旧脚本）
+    run_server(args.host, args.port, config, open_browser=False if args.no_open else None)
     return 0
 
 
