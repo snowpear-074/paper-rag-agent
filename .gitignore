@@ -1,4 +1,19 @@
-# 字节码与缓存
+# ===== 演示 / 交付文档：不上传 =====
+*.ppt
+*.pptx
+*.doc
+*.docx
+*.xls
+*.xlsx
+~$*.docx
+~$*.xlsx
+~$*.pptx
+
+# ===== 打包 / 提交产物：不上传 =====
+智能科研助理_项目提交_*/
+智能科研助理_项目提交_*.zip
+
+# ===== 字节码与缓存 =====
 __pycache__/
 *.py[cod]
 *$py.class
@@ -9,13 +24,13 @@ dist/
 *.egg-info/
 .eggs/
 
-# 虚拟环境
+# ===== 虚拟环境 =====
 .venv/
 venv/
 env/
 ENV/
 
-# 运行时数据（索引 / 向量库 / 缓存 / 记忆数据库 / 上传文件）
+# ===== 运行时数据（索引 / 向量库 / 缓存 / 记忆数据库 / 上传文件） =====
 data/vector_store/
 data/vector_store_test/
 data/index/
@@ -25,7 +40,8 @@ data/memory/
 data/uploads/
 data/models/
 data/samples/
-# 模块联调时的临时目录（idx_m2 / vs_m3 / up_m4 ... 可随时重建）
+
+# 模块联调时的临时目录
 data/idx_*/
 data/vs_*/
 data/up_*/
@@ -38,10 +54,10 @@ data/secrets/
 credentials.json
 secrets.json
 
-# 调试探针脚本（一次性验证用，不属于交付物）
+# ===== 调试探针脚本（一次性验证用，不属于交付物） =====
 _scratch/
 
-# 日志与临时文件
+# ===== 日志与临时文件 =====
 logs/
 *.log
 .pytest_cache/
@@ -50,38 +66,22 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
-# Office 临时/锁文件
-~$*.docx
-~$*.xlsx
-~$*.pptx
-
-# 评测产出说明：评测集、报告（md）、明细（json/xlsx）都入库 —— 它们是课程交付物，
-# 且由 ``APP_LLM__PROVIDER=mock python -m src.evaluation.report --quick`` 可一键复现。
-# 仅忽略评测过程中导出的中间 CSV。
+# ===== 评测中间产物 =====
 reports/*.csv
 
-# 生成交付文档与素材的工具脚本：只在本机生成交付书 / PPT / 界面截图 / 架构图，
-# 属于开发侧工具，不随交付包分发（交付书附录 A 的目录树与代码统计同样不列它们，
-# 保证「文档写的」与「包里有的」一致）。文件仍留在工作目录，可随时重新跟踪。
+# ===== 生成交付文档与素材的工具脚本 =====
 scripts/make_delivery_doc.py
 scripts/make_ppt.py
 scripts/capture_screenshots.py
 scripts/make_diagrams.py
 
-# 打包产物（提交包由 pack 脚本生成，体积大且内容可由仓库复现，不入库）
-智能科研助理_项目提交_*.zip
-
-# 编辑器与系统
+# ===== 编辑器与系统 =====
 .idea/
 .vscode/
 *.swp
 .DS_Store
 Thumbs.db
 
-# 环境变量文件（可能含 API Key，绝不入库）
+# ===== 环境变量文件 =====
 .env
 .env.local
-
-# 课程下发的原始材料（非项目代码）
-南京农业大学课程实践(1).docx
-项目交付模板(1).docx
