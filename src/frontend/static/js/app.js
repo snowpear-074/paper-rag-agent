@@ -920,6 +920,8 @@
       Util.$('#stat-docs').textContent = String(docs);
       Util.$('#stat-chunks').textContent = Util.num(chunks);
       Util.$('#stat-vectors').textContent = Util.num(vectors);
+      // 引导卡正文依赖文档数，知识库刷新后同步一次
+      if (!Util.$('#empty-state')?.hidden) Chat.refreshEmptyHint();
     }
   };
 
@@ -932,7 +934,11 @@
 
     reset(hint) {
       const box = Util.$('#messages');
-      box.replaceChildren();
+      // 引导卡（#empty-state）就挂在 #messages 里，replaceChildren 会把它一起清掉，
+      // 清完再找就找不到了 —— 于是"新建会话 / 切到空会话"后中间是一片空白。
+      // 先把节点留在手里，清空后重新挂回。
+      const empty = this.emptyNode();
+      box.replaceChildren(empty);
       this.el = {};
       this.turn = null;
       Store.state.messages = [];
@@ -940,20 +946,21 @@
       Trace.render();
       Trace.setJson([]);
       Util.$('#chat-session-title').textContent = Store.state.sessionTitle || '新会话';
-      this.showEmpty(!hint);
+      this.showEmpty(true);
       if (hint) Toast.info(hint);
     },
 
-    showEmpty(show) {
-      const empty = Util.$('#empty-state');
-      if (empty) empty.hidden = !show;
+    /** 引导卡节点：缓存引用，避免被 replaceChildren 清掉后再也拿不回来 */
+    emptyNode() {
+      if (!this._empty) this._empty = Util.$('#empty-state') || this.buildEmptyState();
+      return this._empty;
     },
 
     buildEmptyState() {
       const wrap = Util.el('div', { class: 'empty-state', id: 'empty-state' }, [
         Util.el('div', { class: 'empty-logo', text: '📚' }),
         Util.el('h3', { text: '开始你的科研问答' }),
-        Util.el('p', { text: '先上传论文构建知识库，然后向 Agent 提问。回答会附带引用来源与完整推理轨迹。' })
+        Util.el('p', { class: 'empty-lead', text: '先上传论文构建知识库，然后向 Agent 提问。' })
       ]);
       const examples = Util.el('div', { class: 'examples' });
       for (const ex of Config.EXAMPLES) {
@@ -963,6 +970,27 @@
       }
       wrap.append(examples);
       return wrap;
+    },
+
+    showEmpty(show) {
+      const empty = this.emptyNode();
+      if (show) {
+        if (!empty.isConnected) Util.$('#messages')?.append(empty);
+        empty.hidden = false;
+        this.refreshEmptyHint();
+      } else {
+        empty.hidden = true;
+      }
+    },
+
+    /** 引导卡正文跟着知识库状态走：空库提示先上传，有文档就提示直接提问 */
+    refreshEmptyHint() {
+      const lead = Util.$('#empty-state .empty-lead');
+      if (!lead) return;
+      const n = Store.state.docSummary?.num_documents ?? Store.state.docs?.length ?? 0;
+      lead.textContent = n
+        ? `知识库已有 ${n} 篇文档，直接提问即可。回答会附带引用来源与完整推理轨迹。`
+        : '知识库还是空的：把论文拖到左侧虚线框上传，索引完成后就能提问。';
     },
 
     /* ---------- 发送 ---------- */
