@@ -60,6 +60,14 @@ htmlcov/
 # 仅忽略评测过程中导出的中间 CSV。
 reports/*.csv
 
+# 生成交付文档与素材的工具脚本：只在本机生成交付书 / PPT / 界面截图 / 架构图，
+# 属于开发侧工具，不随交付包分发（交付书附录 A 的目录树与代码统计同样不列它们，
+# 保证「文档写的」与「包里有的」一致）。文件仍留在工作目录，可随时重新跟踪。
+scripts/make_delivery_doc.py
+scripts/make_ppt.py
+scripts/capture_screenshots.py
+scripts/make_diagrams.py
+
 # 打包产物（提交包由 pack 脚本生成，体积大且内容可由仓库复现，不入库）
 智能科研助理_项目提交_*.zip
 
