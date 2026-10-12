@@ -135,6 +135,8 @@ class Server:
         env = dict(os.environ)
         env["APP_SERVER__PORT"] = str(self.port)
         env["APP_SERVER__HOST"] = "127.0.0.1"
+        # 截图脚本自己就是用无头浏览器，别让服务再去弹一个桌面浏览器
+        env["APP_NO_BROWSER"] = "1"
         if self.provider:
             env["APP_LLM__PROVIDER"] = self.provider
         stdout = open(self.log_path, "w", encoding="utf-8") if self.log_path else subprocess.DEVNULL
@@ -345,7 +347,14 @@ def capture(args: argparse.Namespace) -> int:
         devtools.wait_for("document.querySelector('#health-label') && "
                           "document.querySelector('#health-label').textContent !== '连接中…'",
                           timeout=40)
-        devtools.wait_for(JS_DOC_COUNT + " > 0", timeout=45)
+        # 等文档面板**渲染完成**，而不是死等"至少有一篇文档"：
+        # 空知识库也要能出图（截图里展示空状态引导与降级提示）。
+        # 只等"有渲染结果"—— 有文档项、或明确写出空/加载失败。
+        devtools.wait_for(
+            "(() => { const b = document.querySelector('#doc-list');"
+            "  return !!b && (b.children.length > 0 || /为空|加载失败/.test(b.textContent)); })()",
+            timeout=45,
+        )
         time.sleep(1.5)
 
         # 前端把加载失败渲染成一个提示段落，而不是抛错 —— 这里显式断言，
@@ -360,16 +369,25 @@ def capture(args: argparse.Namespace) -> int:
         docs = devtools.evaluate(JS_DOC_COUNT) or 0
         print(f"[page] 知识库已加载 {docs} 篇文档")
         if docs == 0:
-            print("[warn] 知识库为空，截图里看不到文档列表。"
-                  "先执行：python run.py --index ./data/samples")
+            print("[warn] 知识库为空：截图里文档列表为空，问答会走「检索无结果」的降级提示。"
+                  "想抓带引用/轨迹的图，先执行：python run.py --index ./data/samples")
 
         # 开一个新会话：否则页面会自动打开"最近一次会话"，
         # 截图里会出现与本次演示无关的历史消息。
-        devtools.evaluate(
-            "(() => { const b = document.querySelector('#btn-new-session');"
-            "  if (b) { b.click(); return true; } return false; })()"
-        )
-        time.sleep(1.0)
+        # 但当前会话本来就是空的（首次启动 / 刚清过库）时不用再建一个 ——
+        # 页面加载已经自动建好了，再点一次会让会话列表并排出现两个"新会话"。
+        existing_msgs = devtools.evaluate("document.querySelectorAll('#messages .msg').length") or 0
+        if existing_msgs:
+            devtools.evaluate(
+                "(() => { const b = document.querySelector('#btn-new-session');"
+                "  if (b) { b.click(); return true; } return false; })()"
+            )
+            time.sleep(1.0)
+
+        # 建会话会弹 Toast，正好盖在右侧轨迹面板上。等它自己淡出再截图 ——
+        # 只等时间，不去动 DOM（脚本的底线是"截图必须是真跑出来的"）。
+        devtools.wait_for("!document.querySelector('#toast-stack .toast')", timeout=12)
+        time.sleep(0.5)
 
         # ① 主界面：知识库 + 空态对话区
         shots.append(devtools.screenshot(out_dir / "01_主界面_知识库与对话.png"))
