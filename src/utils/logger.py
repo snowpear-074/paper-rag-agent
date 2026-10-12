@@ -417,7 +417,9 @@ class MetricsCollector:
     _rag_retrieval_latencies: Deque[float] = field(default_factory=lambda: deque(maxlen=500))
     _rag_tokens: int = 0
     _rag_top_scores: Deque[float] = field(default_factory=lambda: deque(maxlen=500))
-    _rag_questions: Deque[str] = field(default_factory=lambda: deque(maxlen=200))
+    # 「最近问题」由**两条链路**共同写入：RAG 流水线（record_rag）与 Agent（record_agent）。
+    # 只记 RAG 那条的话，Web 端提问全走 Agent，指标面板这一块会**恒为空**。
+    _recent_questions: Deque[str] = field(default_factory=lambda: deque(maxlen=200))
 
     _agent_total: int = 0
     _retrieval_total: int = 0
@@ -449,7 +451,8 @@ class MetricsCollector:
             self._rag_retrieval_latencies.append(answer.retrieval_ms)
             self._rag_tokens += answer.usage.total_tokens
             self._rag_top_scores.append(answer.top_score)
-            self._rag_questions.append(answer.question)
+            if answer.question:
+                self._recent_questions.append(answer.question)
         self._persist({"kind": "rag", **self.rag_snapshot()})
 
     def record_agent(self, result: AgentResult) -> None:
@@ -459,6 +462,9 @@ class MetricsCollector:
             self._agent_latencies.append(result.latency_ms)
             self._agent_tokens += result.usage.total_tokens
             self._terminated[result.terminated_reason] += 1
+            # 指标面板的「最近问题」：Agent 链路也要记，否则 Web 端提问一条都进不去
+            if result.question:
+                self._recent_questions.append(result.question)
             for step in result.steps:
                 if step.tool_result is None:
                     continue
@@ -604,7 +610,7 @@ class MetricsCollector:
             "agent": self.agent_snapshot(),
             "retrieval": self.retrieval_snapshot(),
             "tools": self.tool_snapshot(),
-            "recent_questions": list(self._rag_questions)[-10:],
+            "recent_questions": list(self._recent_questions)[-10:],
             "timestamp": time.time(),
         }
 
@@ -619,7 +625,7 @@ class MetricsCollector:
                 self._rag_latencies,
                 self._rag_retrieval_latencies,
                 self._rag_top_scores,
-                self._rag_questions,
+                self._recent_questions,
                 self._agent_iterations,
                 self._agent_latencies,
                 self._retrieval_latencies,
