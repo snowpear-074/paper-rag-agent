@@ -439,6 +439,27 @@ def _paginate(lines: Sequence[str], paragraphs_per_page: int) -> List[str]:
     return [p for p in pages] or [""]
 
 
+_RE_SECTION_NUMBER = re.compile(
+    r"^(?:第[一二三四五六七八九十百]+[章节部篇]\s*"
+    r"|\d+(?:[.．、]\d+)*[.．、]\s*"
+    r"|\d+\s+"
+    r"|[一二三四五六七八九十]+[、.．]\s*)"
+)
+# "课程名称: 计算机视觉" 这类"标签：值"行 —— 是封面的字段，不是文档标题
+_RE_LABEL_LINE = re.compile(r"^[^:：]{2,10}[:：]")
+
+
+def _looks_like_section_title(line: str) -> bool:
+    """判断一行是「章节标题」而非「文档标题」。
+
+    课程报告类 Word 文档的第一个 Markdown 标题常常是 ``### 1. 整体思路``，
+    直接拿来当论文标题，文档列表里就会显示成「1. 整体思路」这种章节名。
+    """
+    text = line.strip().lstrip("#").strip()
+    rest = _RE_SECTION_NUMBER.sub("", text).strip()
+    return bool(rest) and rest != text and len(rest) <= 30
+
+
 def _build_meta(
     path: Path,
     text: str,
@@ -451,16 +472,28 @@ def _build_meta(
     title = props.get("title", "").strip()
 
     if not title:
-        # 优先取第一个 Markdown 标题
+        # 优先取第一个 Markdown 标题，但跳过章节标题（"### 1. 整体思路"）
+        for line in lines[:12]:
+            if line.startswith("#"):
+                candidate = line.lstrip("# ").strip()
+                if candidate and not _looks_like_section_title(candidate):
+                    title = candidate
+                    break
+    if not title:
+        # 再取首个长度合适的非空行（封面上的论文题目），排除字段行与章节标题
+        for line in lines[:8]:
+            candidate = line.lstrip("# ").strip()
+            if (6 <= len(candidate) <= 160
+                    and not candidate.startswith(("|", "-"))
+                    and not _RE_LABEL_LINE.match(candidate)
+                    and not _looks_like_section_title(candidate)):
+                title = candidate
+                break
+    if not title:
+        # 全篇都是章节标题时，退回第一个标题，最后退回文件名
         for line in lines[:12]:
             if line.startswith("#"):
                 title = line.lstrip("# ").strip()
-                break
-    if not title:
-        # 再取首个长度合适的非空行
-        for line in lines[:8]:
-            if 8 <= len(line) <= 160 and not line.startswith(("|", "-")):
-                title = line
                 break
     if not title:
         title = path.stem
