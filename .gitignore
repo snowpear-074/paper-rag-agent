@@ -53,11 +53,15 @@ htmlcov/
 # Office 临时/锁文件
 ~$*.docx
 ~$*.xlsx
+~$*.pptx
 
 # 评测产出说明：评测集、报告（md）、明细（json/xlsx）都入库 —— 它们是课程交付物，
 # 且由 ``APP_LLM__PROVIDER=mock python -m src.evaluation.report --quick`` 可一键复现。
 # 仅忽略评测过程中导出的中间 CSV。
 reports/*.csv
+
+# 打包产物（提交包由 pack 脚本生成，体积大且内容可由仓库复现，不入库）
+智能科研助理_项目提交_*.zip
 
 # 编辑器与系统
 .idea/
@@ -70,8 +74,6 @@ Thumbs.db
 .env
 .env.local
 
-# 课程下发的原始材料与文本提取件（非项目代码；交付书本身在 docs/delivery/ 下正常入库）
+# 课程下发的原始材料（非项目代码）
 南京农业大学课程实践(1).docx
 项目交付模板(1).docx
-_task_doc.txt
-_template_doc.txt
