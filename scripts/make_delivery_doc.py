@@ -25,6 +25,8 @@ import argparse
 import json
 import re
 import sys
+import unicodedata
+import zipfile
 from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -52,19 +54,61 @@ except ImportError:  # pragma: no cover - 环境缺依赖时给出可操作提�
 TITLE = "智能科研助理 —— 基于 RAG+Agent 的论文知识库问答系统"
 SUBTITLE = "生产实习课程报告"
 DEFAULT_OUT = PROJECT_ROOT / "智能科研助理_项目交付书.docx"
+PPT_PATH = PROJECT_ROOT / "智能科研助理_项目演示.pptx"  # 交付物清单第 4 项
+
+#: 开发侧工具脚本：只在本地生成交付书 / PPT / 截图 / 架构图用，
+#: 不随交付包分发，附录 A 的目录树与代码统计里也不列出（保持文档与包内一致）。
+DEV_ONLY_SCRIPTS = {
+    "scripts/make_delivery_doc.py",
+    "scripts/make_ppt.py",
+    "scripts/capture_screenshots.py",
+    "scripts/make_diagrams.py",
+}
+
+#: 二进制/压缩/Office 格式：目录树只统计文本文件的行数，这些直接跳过
+BINARY_SUFFIXES = {
+    ".pyc", ".pyo", ".so", ".pyd", ".dll", ".exe", ".whl",
+    ".db", ".npy", ".npz",
+    ".png", ".jpg", ".jpeg", ".gif", ".ico", ".svg",
+    ".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt",
+    ".zip", ".gz", ".tar", ".7z", ".rar",
+}
 IMAGES = PROJECT_ROOT / "docs" / "images"
 SHOTS = IMAGES / "screenshots"
 
 FONT_BODY = "仿宋"
 FONT_HEAD = "黑体"
-FONT_TITLE = "黑体"
-FONT_SUB = "楷体"
+FONT_SUB = "仿宋"
 FONT_ASCII = "Times New Roman"
 FONT_CODE = "Consolas"
+#: 课程模板的封面大标题用的是隶书 36 磅（见「生产实习课程报告」一行）
+FONT_COVER = "隶书"
 
-#: 正文字号：课程模板对正文的唯一要求是「仿宋 4 号、1.5 倍行距」，4 号 = 14 磅。
-#: 三级标题因此改用楷体加粗（同号不同字体）与正文区分，而不是缩小字号。
+#: 字号规范 —— 逐条照抄课程模板的括注：
+#: 「一、项目概述（黑体三号，加粗）」  → 一级标题黑体 16 磅加粗；
+#: 「1.1 项目背景（仿宋4号，1.5倍行距）」→ 小标题与正文同为仿宋 14 磅、1.5 倍行距。
+#: 三号 = 16 磅，四号 = 14 磅。小标题与正文同字体同字号，靠**加粗**区分层级
+#: （模板那一行没写「加粗」，但不加粗就与正文完全无从分辨）。
 BODY_SIZE = 14
+H1_SIZE = 16
+H2_SIZE = 14
+
+#: 页面尺寸与页边距，逐项对齐课程模板（项目交付模板(1).docx）的节属性：
+#: A4 + 上下 2.54 cm / 左右 3.17 cm。python-docx 默认模板是 Letter + 2.4/2.6，
+#: 不显式设置的话交付书与模板的页面就不是一个规格。
+PAGE_WIDTH_CM = 21.0
+PAGE_HEIGHT_CM = 29.7
+MARGIN_TB_CM = 2.54
+MARGIN_LR_CM = 3.17
+
+#: 正文可用宽度（21.0 - 3.17 × 2 = 14.66 cm）。表格列宽与代码块都不得超过它，
+#: 否则 Word 会把表格撑出版心、把代码行折行（附录的目录树会散架）。
+TEXT_WIDTH_CM = PAGE_WIDTH_CM - 2 * MARGIN_LR_CM
+TABLE_MAX_CM = 14.6
+CODE_MAX_CM = TEXT_WIDTH_CM - 0.45  # 减去代码块的左缩进
+#: 插图宽度（英寸）：5.7 in ≈ 14.48 cm，正好落在 14.66 cm 的版心内。
+#: 原来写死的 6.0 in（15.24 cm）在模板的窄边距下会顶出版心、和正文对不齐。
+PICTURE_WIDTH_IN = 5.7
 
 GREEN = RGBColor(0x1B, 0x7F, 0x3B)
 ORANGE = RGBColor(0xC0, 0x6A, 0x00)
@@ -164,7 +208,7 @@ def para(doc: Any, text: str = "", *, size: float = BODY_SIZE, font: str = FONT_
          align: Optional[Any] = None, line: float = 1.5,
          before: float = 0, after: float = 4, indent_first: bool = False,
          ascii_name: Optional[str] = None) -> Any:
-    """加一个正文段落。默认：仿宋小四、1.5 倍行距（与课程模板一致）。"""
+    """加一个正文段落。默认：仿宋四号、1.5 倍行距（与课程格式要求一致）。"""
     p = doc.add_paragraph()
     if align is not None:
         p.alignment = align
@@ -200,9 +244,9 @@ def bullet(doc: Any, text: str, *, size: float = BODY_SIZE, level: int = 0,
 
 
 def heading(doc: Any, text: str, level: int = 1) -> Any:
-    """标题：一级黑体三号，二级黑体四号，三级楷体四号加粗。"""
-    size = {1: 16, 2: 14, 3: 14}[level]
-    font = FONT_HEAD if level < 3 else FONT_SUB
+    """标题：大标题（一级）黑体三号加粗，小标题（二、三级）仿宋四号加粗。"""
+    size = {1: H1_SIZE, 2: H2_SIZE, 3: H2_SIZE}[level]
+    font = FONT_HEAD if level == 1 else FONT_SUB
     p = doc.add_heading(level=level)
     fmt = p.paragraph_format
     fmt.keep_with_next = True
@@ -214,8 +258,42 @@ def heading(doc: Any, text: str, level: int = 1) -> Any:
     return p
 
 
+def _line_width_cm(text: str, size: float) -> float:
+    """估算一行文本的渲染宽度（厘米）。
+
+    Consolas 的字符步进恰好是 0.55 em，中文按 eastAsia 走宋体、占满 1 em。
+    用来在没有 Word 排版引擎的情况下判断代码块会不会被折行。
+    """
+    em = size / 72.0 * 2.54
+    wide = sum(1 for ch in text if unicodedata.east_asian_width(ch) in ("W", "F"))
+    return (wide + (len(text) - wide) * 0.55) * em
+
+
+def _fit_size(text: str, size: float, limit: float = TEXT_WIDTH_CM - 0.6) -> float:
+    """把**不能折行**的单行文本压到版心以内（封面字段、题目这类）。
+
+    正文段落折行无所谓，但封面「考核内容：<长题目>」一旦折行就把这一格撑成两行，
+    跟模板的对齐方式就散了。宁可小一号字，也不要折行。
+
+    留 0.6 cm 余量：上面的字宽是按字体度量**估算**的，再叠上 Word 自己的取整，
+    贴着版心排仍然有折行的可能 —— 差半个字比多折一行好看。
+    """
+    width = _line_width_cm(text, size)
+    if width <= limit:
+        return size
+    return max(size * limit / width, 8.0)
+
+
 def code_block(doc: Any, text: str, *, size: float = 9.5) -> Any:
-    """等宽代码块（含中文，故 eastAsia 用宋体、西文用 Consolas）。"""
+    """等宽代码块（含中文，故 eastAsia 用宋体、西文用 Consolas）。
+
+    模板的左右边距（3.17 cm）比 python-docx 默认窄，版心只有 14.66 cm ——
+    超过就会折行，附录里靠空格对齐的目录树一旦折行就没法看了。
+    这里按最宽的一行反推能用的最大字号，宁可小一点也不折行。
+    """
+    widest = max((_line_width_cm(line, size) for line in text.splitlines()), default=0.0)
+    if widest > CODE_MAX_CM:
+        size = max(size * CODE_MAX_CM / widest, 7.0)
     p = doc.add_paragraph()
     fmt = p.paragraph_format
     fmt.line_spacing = 1.0
@@ -233,7 +311,7 @@ def caption(doc: Any, text: str) -> Any:
                 line=1.0, after=10, color=GREY)
 
 
-def picture(doc: Any, path: Path, *, width_in: float = 6.0, note: str = "") -> None:
+def picture(doc: Any, path: Path, *, width_in: float = PICTURE_WIDTH_IN, note: str = "") -> None:
     """插图 + 图注。图片段落设为「与下段同页」，避免图注被挤到下一页去。"""
     if not Path(path).exists():
         para(doc, f"（图片缺失：{path}）", size=10.5, color=RED)
@@ -262,18 +340,39 @@ STATUS_STYLE = {
 }
 
 
+def _fit_widths(widths: Sequence[float], limit: float = TABLE_MAX_CM) -> List[float]:
+    """按比例把列宽压进版心。
+
+    历史原因：这些表是按 15.5 cm 版心排的，换成模板的 3.17 cm 页边距后版心只剩
+    14.66 cm，不缩放的话每张表都会顶出版心。整体等比缩放比逐张改列宽安全 ——
+    列与列的相对比例保持不变。
+    """
+    total = float(sum(widths))
+    if total <= limit:
+        return [float(w) for w in widths]
+    factor = limit / total
+    return [float(w) * factor for w in widths]
+
+
 def table(doc: Any, headers: Sequence[str], rows: Sequence[Sequence[str]], *,
           widths: Optional[Sequence[float]] = None, size: float = 10.5,
-          status_col: Optional[int] = None, shade_rows: bool = True) -> Any:
+          status_col: Optional[int] = None, mark_cols: Optional[Sequence[int]] = None,
+          shade_rows: bool = True) -> Any:
     """加一个带表头底色的表格。
 
     Parameters
     ----------
     widths:
-        每列宽度（厘米）。给出后会关闭自动伸缩，避免 Word 把表格拉得难看。
+        每列宽度（厘米）。给出后会关闭自动伸缩，避免 Word 把表格拉得难看；
+        合计超过版心时会等比压缩（见 :func:`_fit_widths`）。
     status_col:
         指出哪一列是「完成情况」，该列按 :data:`STATUS_STYLE` 着色加粗。
+    mark_cols:
+        指出哪几列是勾选列（列名即状态名），有标记的单元格按该列状态着色 ——
+        课程模板的模块清单就是这种「一列一个状态、打勾」的矩阵。
     """
+    if widths:
+        widths = _fit_widths(widths)
     t = doc.add_table(rows=1, cols=len(headers))
     t.style = "Table Grid"
     t.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -302,10 +401,16 @@ def table(doc: Any, headers: Sequence[str], rows: Sequence[Sequence[str]], *,
             p.paragraph_format.space_after = Pt(0)
             text = "" if value is None else str(value)
             is_status = status_col is not None and i == status_col
+            is_mark = bool(mark_cols) and i in mark_cols
             if is_status:
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 run = p.add_run(text)
                 _set_font(run, FONT_BODY, size, bold=True, color=STATUS_STYLE.get(text))
+            elif is_mark:
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                run = p.add_run(text)
+                _set_font(run, FONT_BODY, size, bold=True,
+                          color=STATUS_STYLE.get(str(headers[i])) if text else None)
             else:
                 add_rich(p, text, size=size)
         if shade_rows and r_index % 2 == 1:
@@ -319,10 +424,43 @@ def table(doc: Any, headers: Sequence[str], rows: Sequence[Sequence[str]], *,
     return t
 
 
+#: 勾选矩阵的三个状态列，顺序与课程模板的示例表一致
+STATUS_COLUMNS = ("已实现", "部分实现", "未实现")
+
+#: 「模块交付物清单」的列宽：交付项 / 三个状态列 / 证据
+STATUS_TABLE_WIDTHS = (4.2, 1.6, 1.9, 1.6, 5.3)
+
+
+def status_table(doc: Any, rows: Sequence[Sequence[str]], *,
+                 widths: Sequence[float] = STATUS_TABLE_WIDTHS, size: float = 10) -> Any:
+    """模块交付物清单：课程模板的三列勾选矩阵 + 一列证据。
+
+    模板对「三、模块交付物清单」的要求是「每个模块制作一个表格说明」，示例表把
+    已实现 / 部分实现 / 未实现 拆成三列、逐项在对应列打勾。这里照搬该形式，
+    但在右侧补一列证据：模块完成情况必须写清代码位置或可复现命令 ——
+    「什么没做、缺口在哪」不能因为换表格样式就被省掉。
+
+    :param rows: 每行 ``[交付项, 完成情况, 说明与证据]``，与旧表完全一致。
+    """
+    grid: List[List[str]] = []
+    for item, status, note in rows:
+        marks = ["✓" if status == col else "" for col in STATUS_COLUMNS]
+        if status not in STATUS_COLUMNS:
+            raise ValueError(f"完成情况只能是 {STATUS_COLUMNS} 之一，收到：{status!r}")
+        grid.append([str(item), *marks, str(note)])
+    return table(
+        doc,
+        ["交付项（课程要求）", *STATUS_COLUMNS, "证据（代码位置 / 命令）"],
+        grid,
+        widths=list(widths), size=size, shade_rows=True,
+        mark_cols=range(1, 1 + len(STATUS_COLUMNS)),
+    )
+
+
 def define_toc_styles(doc: Any) -> None:
     """定义目录的三级样式。
 
-    不定义的话，目录条目会继承 Normal（仿宋 4 号 + 1.5 倍行距），
+    不定义的话，目录条目会继承 Normal（仿宋四号 + 1.5 倍行距），
     37 条目录能占满四页 —— 实测过，确实会。这里把它们压到 1 倍行距、小字号。
     """
     from docx.enum.style import WD_STYLE_TYPE
@@ -477,6 +615,57 @@ def load_chunking_rows() -> List[Dict[str, str]]:
     return rows
 
 
+def load_ppt_path() -> Optional[Path]:
+    """探测演示 PPT 是否已生成（与 :data:`DEFAULT_OUT` 同级的约定路径）。
+
+    交付物清单里的「演示 PPT」条目据此显示「已实现 / 未实现」——
+    探测不到时宁可标注未实现，也不要写一句与实际不符的漂亮话。
+    """
+    return PPT_PATH if PPT_PATH.exists() else None
+
+
+def ppt_slide_count(path: Path) -> Optional[int]:
+    """数 pptx 里的页数：直接数包内 ppt/slides/slideN.xml，不写死数字。"""
+    try:
+        with zipfile.ZipFile(path) as zf:
+            return sum(
+                1
+                for name in zf.namelist()
+                if re.fullmatch(r"ppt/slides/slide\d+\.xml", name)
+            )
+    except (OSError, zipfile.BadZipFile):  # pragma: no cover - 文件损坏时不猜
+        return None
+
+
+def ppt_status() -> str:
+    return "已实现" if load_ppt_path() else "未实现"
+
+
+def ppt_detail() -> str:
+    """交付物清单里 PPT 那一行的「产物」一栏。"""
+    path = load_ppt_path()
+    if path is None:
+        return (
+            "本次交付只包含代码仓库、技术文档、评测报告与交付书；"
+            "演示 PPT 作为课堂汇报材料另行准备"
+        )
+    slides = ppt_slide_count(path)
+    pages = f"{slides} 页：" if slides else ""
+    return (
+        f"{path.name}（{pages}项目背景 / 技术架构 / 功能演示 / 踩坑记录 / 优化对比；"
+        f"图表数字与 reports/ 下的评测产物同源）"
+    )
+
+
+def ppt_location() -> str:
+    """附录 B.5 交付物清单里 PPT 那一行的「位置」一栏。"""
+    path = load_ppt_path()
+    if path is None:
+        return "另行准备（见 6.3 待改进方向）"
+    slides = ppt_slide_count(path)
+    return f"{path.name}（{slides} 页）" if slides else path.name
+
+
 def scan_code_stats() -> Dict[str, Any]:
     """扫描真实文件树（附录 A 与代码规模统计都以此为准）。
 
@@ -493,12 +682,20 @@ def scan_code_stats() -> Dict[str, Any]:
         parts = rel.parts
         if any(part in skip_dirs for part in parts):
             continue
-        if rel.suffix in {".pyc", ".db", ".npy", ".png", ".pdf", ".xlsx", ".docx"}:
+        if rel.suffix.lower() in BINARY_SUFFIXES:
+            continue
+        if str(rel).replace("\\", "/") in DEV_ONLY_SCRIPTS:
             continue
         if parts[0].startswith(".") and len(parts) > 1:
             continue
         if len(parts) == 1 and rel.name.startswith("_"):
-            continue  # 课程材料的文本转写（_task_doc.txt / _template_doc.txt），不属于项目
+            continue  # 根目录下划线开头的临时/参考文件，不属于项目
+        try:
+            with path.open("rb") as fh:
+                if b"\x00" in fh.read(8192):
+                    continue  # 兜底：没列进 BINARY_SUFFIXES 的二进制文件也不当文本数行
+        except OSError:
+            continue
         try:
             lines = sum(1 for _ in path.open("r", encoding="utf-8", errors="ignore"))
         except OSError:
@@ -522,40 +719,41 @@ def scan_code_stats() -> Dict[str, Any]:
 # 封面 / 成员 / 目录
 # ==============================================================================
 def build_cover(doc: Any, today: str) -> None:
+    # 第 1 页：考核情况表。课程模板里这一页是**带全角空格的文字行**，
+    # 不是表格 —— 照模板排版，字段与取值逐项对齐。
     para(doc, "", size=12, after=24, line=1.0)
-    para(doc, "南京农业大学课程考核情况表", size=22, font=FONT_HEAD, bold=True,
+    para(doc, "南京农业大学课程考核情况表", size=18, font=FONT_HEAD,
          align=WD_ALIGN_PARAGRAPH.CENTER, line=1.5, after=18)
-    para(doc, "2026—2027 学年第 1 学期", size=14, font=FONT_HEAD,
-         align=WD_ALIGN_PARAGRAPH.CENTER, line=1.5, after=24)
-
-    rows = [
-        ("学　　院", "智慧农业学院（人工智能学院）"),
-        ("课程名称", "生产实习"),
-        ("学　　分", "1"),
-        ("考核方式", "课程报告"),
-        ("考核内容", f"{TITLE}（详见正文与附录）"),
-        ("成　　绩", ""),
-        ("教师签名", ""),
-        ("时　　间", "2026 年 12 月 30 日"),
-    ]
-    table(doc, ["项　目", "内　容"], rows, widths=[4.0, 11.5], size=12,
-          status_col=None, shade_rows=True)
-    para(doc, "", size=12, after=30, line=1.0)
-    para(doc, f"（本交付书由 scripts/make_delivery_doc.py 于 {today} 生成）",
+    para(doc, "2026—2027 学年第 1 学期", size=15, font=FONT_HEAD,
+         align=WD_ALIGN_PARAGRAPH.RIGHT, line=1.5, after=24)
+    for line in (
+        "学　　院：智慧农业学院（人工智能学院）",
+        "课程名称：生产实习　　　　　　学分：1",
+        "考核方式：课程报告",
+        f"考核内容：{TITLE}",
+        "成　　绩：",
+        "教师签名：",
+        "时　　间：2026 年 12 月 30 日",
+    ):
+        para(doc, line, size=_fit_size(line, 15), font=FONT_HEAD, line=1.5, after=10)
+    para(doc, "", size=12, after=18, line=1.0)
+    para(doc, f"（本交付书生成日期：{today}）",
          size=10.5, font="楷体", align=WD_ALIGN_PARAGRAPH.CENTER, color=GREY, line=1.0)
     doc.add_page_break()
 
+    # 第 2 页：报告封面。标题用隶书 36 磅、题目与成员行用三号加粗 —— 均照模板。
     para(doc, "", size=12, after=60, line=1.0)
-    para(doc, SUBTITLE, size=26, font=FONT_TITLE, bold=True,
+    para(doc, SUBTITLE, size=36, font=FONT_COVER, bold=True,
          align=WD_ALIGN_PARAGRAPH.CENTER, line=1.5, after=30)
-    para(doc, "题　　目：", size=14, font=FONT_HEAD, align=WD_ALIGN_PARAGRAPH.CENTER,
-         line=1.5, after=6)
-    para(doc, TITLE, size=16, font=FONT_HEAD, bold=True,
+    para(doc, "题　　目：", size=16, font=FONT_HEAD, bold=True,
+         align=WD_ALIGN_PARAGRAPH.CENTER, line=1.5, after=6)
+    para(doc, TITLE, size=_fit_size(TITLE, 16), font=FONT_HEAD, bold=True,
          align=WD_ALIGN_PARAGRAPH.CENTER, line=1.5, after=36)
     for _, member, _, _, _ in MEMBERS:
-        para(doc, member, size=13, align=WD_ALIGN_PARAGRAPH.CENTER, line=1.5, after=10)
+        para(doc, member, size=_fit_size(member, 16), font=FONT_HEAD, bold=True,
+             align=WD_ALIGN_PARAGRAPH.CENTER, line=1.5, after=10)
     para(doc, "", size=12, after=30, line=1.0)
-    para(doc, "2026 年 12 月", size=13, font=FONT_HEAD,
+    para(doc, "2026 年 12 月", size=15, font=FONT_HEAD,
          align=WD_ALIGN_PARAGRAPH.CENTER, line=1.5)
     doc.add_page_break()
 
@@ -576,8 +774,7 @@ def build_section_overview(doc: Any) -> None:
     heading(doc, "1.1 项目背景", 2)
     assert len(BACKGROUND) <= 200, f"项目背景超出 200 字限制（当前 {len(BACKGROUND)} 字）"
     para(doc, BACKGROUND, indent_first=True)
-    para(doc, f"（本节 {len(BACKGROUND)} 字，符合课程模板「200 字以内」的要求。）",
-         size=10.5, color=GREY, line=1.0)
+    para(doc, f"（本节 {len(BACKGROUND)} 字，符合课程模板「200 字以内」的要求。）", color=GREY)
 
     heading(doc, "1.2 项目目标", 2)
     para(doc, "构建一个**完全本地可控**的论文知识库问答系统：把课题组自己的 PDF / Word / "
@@ -636,8 +833,7 @@ def build_section_team(doc: Any) -> None:
         widths=[2.3, 4.3, 5.6, 1.8, 1.4], size=10, status_col=None,
     )
     para(doc, "说明：上表中的「成员姓名」栏为占位，请组员在提交前替换为自己的"
-              "班级、学号与姓名；如需调整分工比例，请保证四项之和仍为 100%。",
-         size=10.5, color=GREY)
+              "班级、学号与姓名；如需调整分工比例，请保证四项之和仍为 100%。", color=GREY)
 
 
 # ==============================================================================
@@ -646,15 +842,14 @@ def build_section_team(doc: Any) -> None:
 def build_section_deliverables(doc: Any, metrics: Dict[str, Any],
                                chunk_rows: List[Dict[str, str]]) -> None:
     heading(doc, "三、模块交付物清单", 1)
-    para(doc, "每个模块一张表，逐项标注完成情况（已实现 / 部分实现 / 未实现），"
-              "并给出对应的代码位置或可复现命令作为证据。"
+    para(doc, "每个模块一张表，按课程模板的「已实现 / 部分实现 / 未实现」三列逐项勾选，"
+              "并在末列给出对应的代码位置或可复现命令作为证据。"
               "标注「部分实现」的项一律说明了缺口在哪里，不做含糊表述。")
 
     # -- 模块一 ------------------------------------------------------------
     heading(doc, "模块一：文档处理与检索层", 2)
-    table(
+    status_table(
         doc,
-        ["交付项（课程要求）", "完成情况", "交付说明与证据"],
         [
             ["多格式文档加载器（PDF / Word / TXT）", "已实现",
              "src/data_loader/：PDF 四后端（pymupdf → pdfplumber → pypdf → 内置）按可用性自动降级；"
@@ -686,14 +881,12 @@ def build_section_deliverables(doc: Any, metrics: Dict[str, Any],
             ["检索三档对比实验（纯向量 → 混合 → 混合+重排）", "已实现",
              "reports/系统评测报告.md 第三节（严格口径 + 引擎口径并列）"],
         ],
-        widths=[4.6, 1.9, 9.0], size=10, status_col=1,
     )
 
     # -- 模块二 ------------------------------------------------------------
     heading(doc, "模块二：RAG 生成层", 2)
-    table(
+    status_table(
         doc,
-        ["交付项（课程要求）", "完成情况", "交付说明与证据"],
         [
             ["2.1 引用溯源机制（答案标注文档名 + 页码）", "已实现",
              "src/generation/prompt_template.py 强制输出【文档名 p.页码】；"
@@ -713,14 +906,12 @@ def build_section_deliverables(doc: Any, metrics: Dict[str, Any],
              "Prompt 模板已按「系统角色 + 上下文 + 问题 + 输出格式约束」四段式实现，支持多模板切换；"
              "缺口：生成参数的对比实验未做（本轮评测使用 mock 后端，参数对比无意义），已在 6.3 列为待改进项"],
         ],
-        widths=[4.6, 1.9, 9.0], size=10, status_col=1,
     )
 
     # -- 模块三 ------------------------------------------------------------
     heading(doc, "模块三：Agent 决策层", 2)
-    table(
+    status_table(
         doc,
-        ["交付项（课程要求）", "完成情况", "交付说明与证据"],
         [
             ["3.1 ReAct 核心循环手写实现", "已实现",
              "src/agent/react_loop.py（约 1400 行，含注释与类型标注）："
@@ -741,14 +932,12 @@ def build_section_deliverables(doc: Any, metrics: Dict[str, Any],
             ["3.7 并行工具调用", "已实现",
              "同一轮内的多个独立工具并发执行，实测 3×0.5s 的串行等待缩短到约 0.6s"],
         ],
-        widths=[4.6, 1.9, 9.0], size=10, status_col=1,
     )
 
     # -- 模块四 ------------------------------------------------------------
     heading(doc, "模块四：系统集成与前端展示", 2)
-    table(
+    status_table(
         doc,
-        ["交付项（课程要求）", "完成情况", "交付说明与证据"],
         [
             ["4.1 全系统端到端打通（上传 → 索引 → 对话 → 答案）", "已实现",
              "src/frontend/container.py 的 SystemContainer 统一装配全部组件；"
@@ -771,7 +960,6 @@ def build_section_deliverables(doc: Any, metrics: Dict[str, Any],
              "服务端为 ThreadingHTTPServer，单元测试覆盖了并发请求与线程安全（指标累加加锁）；"
              "缺口：未做多用户压力测试与 QPS 评测"],
         ],
-        widths=[4.6, 1.9, 9.0], size=10, status_col=1,
     )
 
     # -- 模块五 ------------------------------------------------------------
@@ -779,9 +967,8 @@ def build_section_deliverables(doc: Any, metrics: Dict[str, Any],
     eval_stats = load_eval_set_stats()
     total_items = sum(eval_stats.values())
     type_text = "、".join(f"{k} {v} 条" for k, v in eval_stats.items()) or "见 reports/评测集.json"
-    table(
+    status_table(
         doc,
-        ["交付项（课程要求）", "完成情况", "交付说明与证据"],
         [
             ["5.1 评测集（50+ 问答对，覆盖 4 类问题）", "部分实现",
              f"已构建 {total_items} 条问答对（{type_text}），覆盖事实型 / 对比型 / 归纳型 / 推理型四类，中英混合提问。"
@@ -799,9 +986,8 @@ def build_section_deliverables(doc: Any, metrics: Dict[str, Any],
              "引用准确性已由指标自动核验（引用准确率 100%），并有引用覆盖率与忠实度的自动度量；"
              "缺口：正确性 / 完整性的**人工评分表**未附（本轮评测运行在 mock 后端下，人工评分需在真实模型环境中由组员完成）"],
             ["Docker 一键部署", "已实现", "docker/Dockerfile + docker/docker-compose.yml（数据卷持久化 data/ 与 logs/）"],
-            ["演示 PPT", "未实现", "本次交付只包含代码仓库、技术文档、评测报告与交付书；演示 PPT 作为课堂汇报材料另行准备"],
+            ["演示 PPT", ppt_status(), ppt_detail()],
         ],
-        widths=[4.6, 1.9, 9.0], size=10, status_col=1,
     )
 
 
@@ -1066,8 +1252,8 @@ def build_impl_module4(doc: Any) -> None:
               "样式约 1160 行，合计约 3100 行，换来的是零构建步骤、零依赖与完全可控的交互细节。",
          indent_first=True)
 
-    heading(doc, "（3）4.4.1 系统架构图", 3)
-    picture(doc, IMAGES / "architecture.png", width_in=6.0,
+    heading(doc, "4.4.1 系统架构图", 3)
+    picture(doc, IMAGES / "architecture.png", width_in=PICTURE_WIDTH_IN,
             note="图 1　系统整体架构：展示层 / 接口层 / 决策层 / 生成层 / 检索层 / 数据层六层结构")
     para(doc, "架构说明：系统自下而上分为六层，各层通过标准化接口交互，"
               "任何一层都可以被替换而不影响其他层。")
@@ -1091,16 +1277,17 @@ def build_impl_module4(doc: Any) -> None:
         widths=[2.0, 6.8, 6.7], size=10, status_col=None,
     )
 
-    heading(doc, "（4）4.4.2 界面功能截图", 3)
+    heading(doc, "4.4.2 界面功能截图", 3)
     pics = [
         ("01_主界面_知识库与对话.png",
-         "图 2　主界面：左侧为知识库管理（文档列表、类型、分块数、向量化状态与删除操作），"
-         "中部为对话区（含新建会话、会话列表），右侧为 Agent 推理轨迹面板"),
+         "图 2　主界面：左侧为知识库管理（拖拽上传区与文档列表：标题、年份、类型、分块数、"
+         "向量化状态，鼠标悬停出现删除入口），中部为对话区（含新建会话、会话列表与示例问题），"
+         "右侧为 Agent 推理轨迹面板"),
         ("02_问答_引用与Agent轨迹.png",
-         "图 3　问答结果：答案中的引用角标【文档名 p.页码】、末尾的引用来源清单，"
-         "以及右侧逐条展开的 Thought → Action → Observation 轨迹与耗时"),
+         "图 3　问答结果：答案中带 [1][2][3] 引用角标、末尾给出「引用来源（3）」清单，"
+         "右侧为逐条展开的 ROUTE / ACTION / RETRIEVE / OBSERVE / THOUGHT / CITATION 轨迹与耗时"),
         ("03_多轮追问_上下文记忆.png",
-         "图 4　多轮追问：同一会话内继承上文（“那 ResNet 有什么不同？”），"
+         "图 4　多轮追问：同一会话内继承上文（“它和 ResNet 有什么不同？”），"
          "左侧会话列表显示轮次计数，验证会话隔离与记忆压缩"),
         ("04_工具清单.png",
          "图 5　工具清单：8 个已注册工具的名称、说明与参数，"
@@ -1110,7 +1297,7 @@ def build_impl_module4(doc: Any) -> None:
          "工具成功率、降级率、Token、平均轮次、平均 Top 分数）、工具调用统计、终止原因分布与检索质量"),
     ]
     for name, note in pics:
-        picture(doc, SHOTS / name, width_in=6.0, note=note)
+        picture(doc, SHOTS / name, width_in=PICTURE_WIDTH_IN, note=note)
 
     heading(doc, "（5）集成过程中修掉的真实缺陷", 3)
     para(doc, "端到端联调暴露了三个只有「真跑起来」才会发现的问题，均已修复并补了回归测试：")
@@ -1238,7 +1425,7 @@ def build_impl_module5(doc: Any, metrics: Dict[str, Any],
     para(doc, "说明：本轮评测运行在 mock 大模型后端下（离线、确定性），"
               "因此「生成」耗时与答案文本不代表真实模型的表现；"
               "检索、Agent 决策、引用核对等全部是真实计算路径。"
-              "换真实模型只需改一个环境变量后重跑同一条命令。", size=10.5, color=GREY)
+              "换真实模型只需改一个环境变量后重跑同一条命令。", color=GREY)
 
     heading(doc, "（5）Bad Case 与一轮迭代优化", 3)
     para(doc, "Bad Case 自动分成四类并分别归因：检索失败 / 生成错误 / 引用错误 / Agent 决策错误。"
@@ -1271,9 +1458,9 @@ def build_section_design(doc: Any) -> None:
     heading(doc, "5.1 系统架构图", 2)
     para(doc, "整体架构图见图 1（4.4.1）。此处补充两张核心流程图："
               "一次问答在 RAG 生成层内部的流转，以及 Agent 的 ReAct 决策循环。")
-    picture(doc, IMAGES / "rag_flow.png", width_in=6.0,
+    picture(doc, IMAGES / "rag_flow.png", width_in=PICTURE_WIDTH_IN,
             note="图 7　RAG 七步流水线：缓存 → 混合检索 → 重排 → 降级判定 → 上下文构建 → 生成 → 引用解析")
-    picture(doc, IMAGES / "react_loop.png", width_in=6.0,
+    picture(doc, IMAGES / "react_loop.png", width_in=PICTURE_WIDTH_IN,
             note="图 8　Agent 的 ReAct 循环：Thought → Action → Observation，含并行调用、"
                  "循环检测与错误回灌，底部为 8 个可调用工具")
 
@@ -1314,8 +1501,7 @@ def build_section_design(doc: Any) -> None:
     para(doc, "统一数据结构（src/utils/types.py）：LoadedDocument（原文 + 元信息）、Chunk（文本 + 页码 + 字符区间 + doc_id）、"
               "RetrievedChunk（Chunk + score/confidence/rerank_score）、Citation（来源 + 页码 + 片段编号）、"
               "RAGAnswer（答案 + 引用 + 检索片段 + 降级原因 + Token/耗时）、"
-              "ToolCall / ToolResult / AgentStep / AgentResult（决策层）、Message / ConversationTurn / Session（记忆层）。",
-         size=10.5)
+              "ToolCall / ToolResult / AgentStep / AgentResult（决策层）、Message / ConversationTurn / Session（记忆层）。")
 
     heading(doc, "5.3 核心数据流向", 2)
     para(doc, "一次完整问答的数据流如下（编号对应图 7、图 8 中的步骤）：")
@@ -1373,7 +1559,7 @@ def build_section_design(doc: Any) -> None:
         ],
         widths=[2.7, 5.7, 7.1], size=9.5, status_col=None,
     )
-    para(doc, "完整示例与每个参数的含义见 docs/技术设计文档.md 与项目根目录 config.yaml 中的逐行注释。", size=10.5)
+    para(doc, "完整示例与每个参数的含义见 docs/技术设计文档.md 与项目根目录 config.yaml 中的逐行注释。")
 
 
 # ==============================================================================
@@ -1488,7 +1674,10 @@ def build_section_summary(doc: Any, metrics: Dict[str, Any], stats: Dict[str, An
         "但缺少 QPS、长连接与并发上传的实测数据。",
         "上下文与引用体验优化：目前的引用是整条回答生成后解析的，"
         "可以进一步做到「引用标记随答案同步出现」；长文档的上下文截断策略也可按章节结构优化。",
-        "演示 PPT 与录屏：作为课堂汇报材料另行准备。",
+        "课堂汇报录屏：演示 PPT 已随交付包提供（见附录 B.5 第 8 项），"
+        "但现场讲解的录屏尚未录制，需要回看时只能对着 PPT 逐页复现。"
+        if load_ppt_path()
+        else "演示 PPT 与录屏：作为课堂汇报材料另行准备。",
     ):
         bullet(doc, text)
 
@@ -1530,7 +1719,7 @@ def build_appendix(doc: Any, stats: Dict[str, Any]) -> None:
     )
     para(doc, "说明：本项目**不依赖 Streamlit**。任务书示例中的 streamlit run src/frontend/app.py "
               "在本项目中对应的启动方式是 python run.py —— 系统自带基于标准库的 Web 服务与前端，"
-              "无需安装任何 Web 框架。", size=10.5, color=GREY)
+              "无需安装任何 Web 框架。", color=GREY)
 
     heading(doc, "B.2 初始化与启动", 3)
     code_block(
@@ -1540,9 +1729,11 @@ def build_appendix(doc: Any, stats: Dict[str, Any]) -> None:
         "# 5) 环境自检 + 生成样例论文 + 建立索引\n"
         "python scripts/bootstrap.py --index\n\n"
         "# 6) 启动应用（默认 http://127.0.0.1:8501；端口被占用时自动顺延，以控制台输出为准）\n"
-        "python run.py --open\n\n"
+        "#    启动后会自动打开浏览器（Docker/无桌面环境自动跳过；--no-open 可关闭）\n"
+        "python run.py\n\n"
         "# 其他常用入口\n"
         "python run.py --cli            # 命令行交互问答\n"
+        "python run.py --no-open        # 只启动服务，不打开浏览器\n"
         "python run.py --health         # 组件健康检查\n"
         "python run.py --list-tools     # 查看 8 个工具及其参数\n"
         "python run.py --index ./data/samples   # 批量导入论文",
@@ -1558,9 +1749,7 @@ def build_appendix(doc: Any, stats: Dict[str, Any]) -> None:
         "#     Windows PowerShell 下等价写法：\n"
         "#       $env:APP_LLM__PROVIDER=\"mock\"; python -m src.evaluation.report --quick\n\n"
         "# 分块策略对比实验（四种策略，约 1 秒）\n"
-        "APP_LLM__PROVIDER=mock python -m src.evaluation.chunking_experiment\n\n"
-        "# 重新生成本交付书（数字自动取自上面的评测产物）\n"
-        "python scripts/make_delivery_doc.py",
+        "APP_LLM__PROVIDER=mock python -m src.evaluation.chunking_experiment",
     )
 
     heading(doc, "B.4 Docker 一键部署（可选）", 3)
@@ -1582,7 +1771,7 @@ def build_appendix(doc: Any, stats: Dict[str, Any]) -> None:
             ["5", "用户使用手册", "docs/用户使用手册.md"],
             ["6", "本交付书（Word）", "智能科研助理_项目交付书.docx"],
             ["7", "Docker 部署文件", "docker/Dockerfile、docker/docker-compose.yml"],
-            ["8", "演示 PPT", "另行准备（见 6.3 待改进方向）"],
+            ["8", "演示 PPT", ppt_location()],
         ],
         widths=[1.2, 6.3, 8.0], size=10, status_col=None,
     )
@@ -1642,7 +1831,7 @@ def build_tree_text(groups: Dict[str, List[Tuple[str, int]]], stats: Dict[str, A
 # ==============================================================================
 def build_document(out_path: Path) -> Path:
     doc = Document()
-    # 全局默认字体（正文样式）：仿宋小四、1.5 倍行距
+    # 全局默认字体（正文样式）：仿宋四号、1.5 倍行距
     style = doc.styles["Normal"]
     style.font.name = FONT_ASCII
     style.font.size = Pt(BODY_SIZE)
@@ -1650,10 +1839,13 @@ def build_document(out_path: Path) -> Path:
     style.paragraph_format.line_spacing = 1.5
     define_toc_styles(doc)
     for section in doc.sections:
-        section.left_margin = Cm(2.6)
-        section.right_margin = Cm(2.6)
-        section.top_margin = Cm(2.4)
-        section.bottom_margin = Cm(2.4)
+        # 页面规格照课程模板：A4 + 上下 2.54 / 左右 3.17 cm
+        section.page_width = Cm(PAGE_WIDTH_CM)
+        section.page_height = Cm(PAGE_HEIGHT_CM)
+        section.top_margin = Cm(MARGIN_TB_CM)
+        section.bottom_margin = Cm(MARGIN_TB_CM)
+        section.left_margin = Cm(MARGIN_LR_CM)
+        section.right_margin = Cm(MARGIN_LR_CM)
 
     metrics = load_metrics()
     chunk_rows = load_chunking_rows()
